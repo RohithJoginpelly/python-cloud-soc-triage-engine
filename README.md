@@ -15,6 +15,9 @@ CloudTrail JSON Logs -> Parser -> Detection Rules -> Enrichment -> Severity Scor
 - Detects new IAM access key creation
 - Detects possible IAM privilege escalation
 - Detects CloudTrail logging tampering
+- Detects AWS root account usage
+- Detects possible public S3 bucket exposure
+- Detects security groups opened to the internet
 - Adds user role and department context
 - Adds recommended analyst actions
 - Creates CSV alert queue
@@ -26,6 +29,9 @@ AWS-AUTH-001: Multiple failed logins followed by success - High
 AWS-IAM-001: New IAM access key created - Medium  
 AWS-IAM-002: Possible IAM privilege escalation - High  
 AWS-LOG-001: CloudTrail logging modified or disabled - Critical  
+AWS-ROOT-001: Root account console login detected - Critical  
+AWS-S3-001: Possible public S3 bucket exposure - High  
+AWS-NET-001: Security group opened to the internet - High  
 
 ## How to Run
 
@@ -62,6 +68,19 @@ http://localhost:8501
 - screenshots/ contains dashboard screenshots
 - playbooks/ contains SOC response playbooks
 - reports/ contains incident report templates
+
+## SOC Playbooks
+This project includes SOC-style playbooks for:
+
+- Multiple failed logins followed by success
+- New IAM access key creation
+- IAM privilege escalation
+- CloudTrail logging tampering
+- Root account usage
+- Public S3 bucket exposure
+- Security group opened to the internet
+
+Each playbook explains why the alert matters, what evidence to review, triage steps, containment actions, and closure criteria.
 
 ## Skills Demonstrated
 - AWS CloudTrail log analysis
