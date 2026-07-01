@@ -8,6 +8,21 @@ KNOWN_USERS = {
         "role": "Cloud Admin",
         "department": "IT Security",
         "normal_region": "us-east-1"
+    },
+    "storage-admin": {
+        "role": "Storage Administrator",
+        "department": "Cloud Infrastructure",
+        "normal_region": "us-east-1"
+    },
+    "network-admin": {
+        "role": "Network Administrator",
+        "department": "Cloud Infrastructure",
+        "normal_region": "us-east-1"
+    },
+    "root-account": {
+        "role": "AWS Root Account",
+        "department": "Account Owner",
+        "normal_region": "us-east-1"
     }
 }
 
@@ -24,6 +39,15 @@ def get_recommended_action(rule_id: str) -> str:
 
     if rule_id == "AWS-LOG-001":
         return "Immediately verify CloudTrail status, re-enable logging, and investigate the actor."
+
+    if rule_id == "AWS-ROOT-001":
+        return "Verify whether root login was approved, confirm MFA usage, review all account activity after login, and avoid routine root account use."
+
+    if rule_id == "AWS-S3-001":
+        return "Review bucket public access settings, inspect bucket policy/ACL changes, restore private access if unauthorized, and confirm business justification."
+
+    if rule_id == "AWS-NET-001":
+        return "Review the security group rule, remove 0.0.0.0/0 if not approved, restrict access to trusted IPs, and verify exposed services."
 
     return "Review the event and escalate if unauthorized."
 
