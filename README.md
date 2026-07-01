@@ -6,6 +6,9 @@ This project is a Python-based Cloud SOC detection and triage lab. It reads AWS 
 ## Architecture
 CloudTrail JSON Logs -> Parser -> Detection Rules -> Enrichment -> Severity Scoring -> CSV Incident Queue -> Streamlit Dashboard
 
+## Dashboard Screenshot
+![Cloud SOC Triage Dashboard](screenshots/dashboard.png)
+
 ## Features
 - Parses CloudTrail-style JSON logs
 - Detects failed logins followed by success
@@ -23,9 +26,6 @@ AWS-AUTH-001: Multiple failed logins followed by success - High
 AWS-IAM-001: New IAM access key created - Medium  
 AWS-IAM-002: Possible IAM privilege escalation - High  
 AWS-LOG-001: CloudTrail logging modified or disabled - Critical  
-
-## Dashboard Screenshot
-![Cloud SOC Triage Dashboard](screenshots/dashboard.png)
 
 ## How to Run
 
