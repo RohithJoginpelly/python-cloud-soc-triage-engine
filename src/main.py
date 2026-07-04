@@ -2,6 +2,8 @@ from parser import load_cloudtrail_file, normalize_event
 from detections import run_all_detections
 from enrichment import enrich_alert
 from severity import add_severity_score
+from mitre_mapping import add_mitre_mapping
+from local_enrichment import enrich_with_local_context
 from incident_queue import write_alerts_to_csv
 from database import save_alerts_to_database
 
@@ -19,6 +21,8 @@ def main():
     for alert in alerts:
         alert = enrich_alert(alert)
         alert = add_severity_score(alert)
+        alert = add_mitre_mapping(alert)
+        alert = enrich_with_local_context(alert)
         alert["status"] = "Open"
         final_alerts.append(alert)
 

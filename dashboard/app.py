@@ -21,7 +21,7 @@ st.set_page_config(
 )
 
 st.title("🛡️ Cloud SOC Triage Dashboard")
-st.caption("Offline AWS CloudTrail detection, incident triage, and case management lab")
+st.caption("Offline AWS CloudTrail detection, MITRE mapping, local enrichment, and case management lab")
 
 incidents = get_all_incidents()
 
@@ -35,19 +35,21 @@ total_alerts = len(df)
 critical_alerts = len(df[df["severity"] == "Critical"])
 high_alerts = len(df[df["severity"] == "High"])
 open_cases = len(df[df["status"] != "Closed"])
+suspicious_ip_alerts = len(df[df["ip_reputation"] == "Suspicious"])
 
-col1, col2, col3, col4 = st.columns(4)
+col1, col2, col3, col4, col5 = st.columns(5)
 
 col1.metric("Total Alerts", total_alerts)
 col2.metric("Critical Alerts", critical_alerts)
 col3.metric("High Alerts", high_alerts)
 col4.metric("Open Cases", open_cases)
+col5.metric("Suspicious IP Alerts", suspicious_ip_alerts)
 
 st.divider()
 
 st.subheader("SOC Case Filters")
 
-filter_col1, filter_col2, filter_col3 = st.columns(3)
+filter_col1, filter_col2, filter_col3, filter_col4 = st.columns(4)
 
 with filter_col1:
     severity_filter = st.multiselect(
@@ -70,10 +72,18 @@ with filter_col3:
         default=list(sorted(df["user_name"].unique()))
     )
 
+with filter_col4:
+    ip_rep_filter = st.multiselect(
+        "Filter by IP reputation",
+        options=sorted(df["ip_reputation"].unique()),
+        default=list(sorted(df["ip_reputation"].unique()))
+    )
+
 filtered_df = df[
     df["severity"].isin(severity_filter)
     & df["status"].isin(status_filter)
     & df["user_name"].isin(user_filter)
+    & df["ip_reputation"].isin(ip_rep_filter)
 ]
 
 st.subheader("Incident Queue")
@@ -84,9 +94,11 @@ display_columns = [
     "title",
     "severity",
     "risk_score",
+    "mitre_technique_id",
+    "ip_reputation",
+    "user_risk",
     "user_name",
     "source_ip",
-    "aws_region",
     "status",
     "event_time"
 ]
@@ -103,6 +115,10 @@ st.subheader("Incident Details and Analyst Update")
 
 incident_ids = filtered_df["incident_id"].tolist()
 
+if not incident_ids:
+    st.warning("No incidents match the selected filters.")
+    st.stop()
+
 selected_incident_id = st.selectbox(
     "Select an incident to investigate",
     options=incident_ids
@@ -111,7 +127,7 @@ selected_incident_id = st.selectbox(
 incident = get_incident_by_id(selected_incident_id)
 
 if incident:
-    detail_col1, detail_col2 = st.columns(2)
+    detail_col1, detail_col2, detail_col3 = st.columns(3)
 
     with detail_col1:
         st.markdown("### Case Summary")
@@ -127,9 +143,28 @@ if incident:
         st.write(f"**User:** {incident['user_name']}")
         st.write(f"**Role:** {incident['user_role']}")
         st.write(f"**Department:** {incident['department']}")
+        st.write(f"**User Risk:** {incident['user_risk']}")
         st.write(f"**Source IP:** {incident['source_ip']}")
         st.write(f"**AWS Region:** {incident['aws_region']}")
-        st.write(f"**Event Time:** {incident['event_time']}")
+
+    with detail_col3:
+        st.markdown("### Local Enrichment")
+        st.write(f"**IP Type:** {incident['ip_type']}")
+        st.write(f"**IP Label:** {incident['ip_label']}")
+        st.write(f"**IP Reputation:** {incident['ip_reputation']}")
+        st.write(f"**Business Hours:** {incident['business_hours']}")
+        st.write(f"**Normal Region:** {incident['normal_region']}")
+        st.write(f"**Unusual Region:** {incident['unusual_region']}")
+
+    st.markdown("### MITRE ATT&CK Mapping")
+    mitre_col1, mitre_col2, mitre_col3 = st.columns(3)
+
+    mitre_col1.info(f"**Tactic:** {incident['mitre_tactic']}")
+    mitre_col2.info(f"**Technique ID:** {incident['mitre_technique_id']}")
+    mitre_col3.info(f"**Technique:** {incident['mitre_technique_name']}")
+
+    st.markdown("### Local Risk Notes")
+    st.warning(incident["local_risk_notes"])
 
     st.markdown("### Description")
     st.write(incident["description"])
@@ -178,11 +213,12 @@ st.subheader("Analyst Summary")
 
 summary_text = f"""
 This dashboard contains {total_alerts} cloud security alerts.
-There are {critical_alerts} critical alerts and {high_alerts} high alerts.
+There are {critical_alerts} critical alerts, {high_alerts} high alerts, and {suspicious_ip_alerts} alerts involving suspicious IP context.
 {open_cases} cases are currently not closed.
 
-The highest-risk incidents should be investigated first, especially CloudTrail tampering,
-root account usage, IAM privilege changes, public S3 exposure, and security groups opened to the internet.
+The highest-risk incidents should be investigated first, especially alerts involving CloudTrail tampering,
+root account usage, IAM privilege changes, suspicious IPs, critical users, public S3 exposure,
+and security groups opened to the internet.
 """
 
 st.info(summary_text)

@@ -1,0 +1,7 @@
+user_name,normal_region,admin_user,critical_user
+student-user,us-east-1,false,false
+admin-user,us-east-1,true,true
+unknown-admin,us-east-1,true,true
+root-account,us-east-1,true,true
+storage-admin,us-east-1,true,false
+network-admin,us-east-1,true,false

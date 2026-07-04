@@ -1,0 +1,7 @@
+ip_address,label,classification
+8.8.8.8,External DNS test IP,Suspicious
+44.55.66.77,Admin remote access IP,Known
+99.88.77.66,Unknown external admin IP,Suspicious
+11.22.33.44,Root login test IP,Suspicious
+55.66.77.88,Storage admin remote IP,Known
+66.77.88.99,Network admin remote IP,Known
