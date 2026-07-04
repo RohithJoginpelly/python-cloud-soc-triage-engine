@@ -362,6 +362,4 @@ The sample CloudTrail-style logs allow the full detection, triage, reporting, an
 * Add Slack or email notification simulation
 * Add severity trend charts
 
-## Disclaimer
 
-This project is for educational, portfolio, and lab purposes only. It uses simulated AWS CloudTrail-style telemetry and should not be used as a production security monitoring system without additional validation, hardening, and testing.
