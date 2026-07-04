@@ -33,6 +33,11 @@ MITRE_MAPPINGS = {
         "mitre_tactic": "Defense Evasion",
         "mitre_technique_id": "T1578",
         "mitre_technique_name": "Modify Cloud Compute Infrastructure"
+    },
+    "AWS-CORR-001": {
+        "mitre_tactic": "Multiple",
+        "mitre_technique_id": "T1078/T1098/T1562.008",
+        "mitre_technique_name": "Valid Accounts, Account Manipulation, Disable or Modify Cloud Logs"
     }
 }
 

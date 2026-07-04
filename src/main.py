@@ -1,5 +1,6 @@
 from parser import load_cloudtrail_file, normalize_event
 from detections import run_all_detections
+from correlation import run_correlation_detections
 from enrichment import enrich_alert
 from severity import add_severity_score
 from mitre_mapping import add_mitre_mapping
@@ -15,7 +16,10 @@ def main():
     for event in raw_events:
         normalized_events.append(normalize_event(event))
 
-    alerts = run_all_detections(normalized_events)
+    rule_alerts = run_all_detections(normalized_events)
+    correlation_alerts = run_correlation_detections(normalized_events)
+
+    alerts = rule_alerts + correlation_alerts
 
     final_alerts = []
     for alert in alerts:
@@ -30,7 +34,9 @@ def main():
     save_alerts_to_database(final_alerts)
 
     print(f"Processed events: {len(normalized_events)}")
-    print(f"Generated alerts: {len(final_alerts)}")
+    print(f"Generated rule alerts: {len(rule_alerts)}")
+    print(f"Generated correlation alerts: {len(correlation_alerts)}")
+    print(f"Generated total alerts: {len(final_alerts)}")
     print("Alert queue created: data/alerts/alerts.csv")
     print("Incident database updated: data/incidents/incidents.db")
 
