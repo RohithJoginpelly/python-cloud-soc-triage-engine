@@ -3,6 +3,7 @@ from detections import run_all_detections
 from enrichment import enrich_alert
 from severity import add_severity_score
 from incident_queue import write_alerts_to_csv
+from database import save_alerts_to_database
 
 
 def main():
@@ -18,13 +19,16 @@ def main():
     for alert in alerts:
         alert = enrich_alert(alert)
         alert = add_severity_score(alert)
+        alert["status"] = "Open"
         final_alerts.append(alert)
 
     write_alerts_to_csv(final_alerts, "data/alerts/alerts.csv")
+    save_alerts_to_database(final_alerts)
 
     print(f"Processed events: {len(normalized_events)}")
     print(f"Generated alerts: {len(final_alerts)}")
     print("Alert queue created: data/alerts/alerts.csv")
+    print("Incident database updated: data/incidents/incidents.db")
 
 
 if __name__ == "__main__":
