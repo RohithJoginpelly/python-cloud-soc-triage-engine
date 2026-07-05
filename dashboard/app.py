@@ -29,6 +29,49 @@ def load_ingestion_status(status_file="data/ingestion/ingestion_status.json"):
         return None
 
 
+
+def load_notification_outbox(outbox_file="data/notifications/notification_outbox.json"):
+    outbox_path = Path(outbox_file)
+
+    if not outbox_path.exists():
+        return None
+
+    try:
+        with outbox_path.open("r", encoding="utf-8") as file:
+            return json.load(file)
+    except json.JSONDecodeError:
+        return None
+
+
+def render_notification_status():
+    outbox = load_notification_outbox()
+
+    st.subheader("Notification Status")
+
+    if not outbox:
+        st.info("No notification outbox found yet. Run `python src/main.py` to generate notifications.")
+        return
+
+    col1, col2, col3 = st.columns(3)
+
+    col1.metric("Notifications Generated", outbox.get("notification_count", 0))
+    col2.metric("Delivery Mode", outbox.get("delivery_mode", "unknown"))
+    col3.metric("Channel", outbox.get("channel", "unknown"))
+
+    notifications = outbox.get("notifications", [])
+
+    if notifications:
+        with st.expander("View Simulated Email Alerts"):
+            for notification in notifications:
+                st.markdown(f"**{notification.get('subject', 'No subject')}**")
+                st.caption(
+                    f"Rule: {notification.get('rule_id', 'unknown')} | "
+                    f"Severity: {notification.get('severity', 'unknown')} | "
+                    f"Risk Score: {notification.get('risk_score', 'unknown')}"
+                )
+                st.code(notification.get("body", "No notification body available."))
+
+
 def render_ingestion_status():
     status = load_ingestion_status()
 
@@ -64,6 +107,8 @@ st.title("🛡️ Cloud SOC Triage Dashboard")
 st.caption("Offline AWS CloudTrail detection, MITRE mapping, local enrichment, and case management lab")
 
 render_ingestion_status()
+st.divider()
+render_notification_status()
 st.divider()
 
 incidents = get_all_incidents()

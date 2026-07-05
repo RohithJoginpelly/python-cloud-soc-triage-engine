@@ -14,6 +14,7 @@ from ingestion_config import (
 )
 from incident_queue import write_alerts_to_csv
 from database import save_alerts_to_database
+from notification_service import generate_notifications
 
 
 def main():
@@ -43,6 +44,7 @@ def main():
 
     write_alerts_to_csv(final_alerts, "data/alerts/alerts.csv")
     save_alerts_to_database(final_alerts)
+    notification_outbox = generate_notifications(final_alerts)
 
     write_ingestion_status(
         config=ingestion_config,
@@ -61,6 +63,7 @@ def main():
     print("Alert queue created: data/alerts/alerts.csv")
     print("Incident database updated: data/incidents/incidents.db")
     print("Ingestion status updated: data/ingestion/ingestion_status.json")
+    print(f"Notifications generated: {notification_outbox.get('notification_count', 0)}")
 
 
 if __name__ == "__main__":
