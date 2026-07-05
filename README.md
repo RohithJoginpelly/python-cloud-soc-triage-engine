@@ -1,5 +1,7 @@
 # Python Cloud SOC Triage Engine
 
+[![SOC Pipeline Validation](https://github.com/RohithJoginpelly/python-cloud-soc-triage-engine/actions/workflows/test.yml/badge.svg)](https://github.com/RohithJoginpelly/python-cloud-soc-triage-engine/actions/workflows/test.yml)
+
 ![Python](https://img.shields.io/badge/Python-3.13-blue)
 ![Streamlit](https://img.shields.io/badge/Dashboard-Streamlit-red)
 ![SQLite](https://img.shields.io/badge/Database-SQLite-lightgrey)
