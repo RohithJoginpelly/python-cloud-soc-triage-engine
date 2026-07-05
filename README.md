@@ -390,3 +390,33 @@ Example AWS-collected input command:
 
 SOC_INPUT_FILE=data/raw/aws_cloudtrail_event_history.json python src/main.py
 
+
+
+## Local Alert Notification Outbox
+
+The project includes a local alert notification outbox that simulates SOC email notifications without requiring real email credentials.
+
+When the detection engine generates High or Critical alerts, the notification service creates simulated email-style alerts and stores them locally.
+
+Generated notification outputs:
+
+- data/notifications/notification_outbox.json
+- data/notifications/email_outbox.txt
+
+The notification outbox includes:
+
+- Notification ID
+- Alert severity
+- Rule ID
+- Alert title
+- Risk score
+- User
+- Source IP
+- MITRE technique
+- Analyst summary
+- Recommended analyst action
+
+The Streamlit dashboard also includes a Notification Status section showing the number of generated notifications, delivery mode, and notification channel.
+
+This feature demonstrates SOC alerting workflow design while keeping the project safe for GitHub. Real email sending is intentionally not enabled by default, so no passwords, API keys, or SMTP credentials are required.
+
