@@ -1,0 +1,80 @@
+rules:
+  - rule_id: AWS-AUTH-001
+    title: Multiple failed logins followed by success
+    severity: High
+    base_score: 75
+    mitre_tactic: Credential Access
+    mitre_technique_id: T1110
+    mitre_technique_name: Brute Force
+    description: Multiple failed console login attempts followed by a successful login may indicate credential guessing or account compromise.
+    recommended_action: Verify with the user, review login history, reset password if unauthorized, and enforce MFA.
+
+  - rule_id: AWS-IAM-001
+    title: New IAM access key created
+    severity: Medium
+    base_score: 50
+    mitre_tactic: Persistence
+    mitre_technique_id: T1098
+    mitre_technique_name: Account Manipulation
+    description: A new IAM access key was created. This may be normal administration or a persistence attempt.
+    recommended_action: Confirm whether the access key was authorized, review the actor account, and remove unauthorized keys.
+
+  - rule_id: AWS-IAM-002
+    title: Possible IAM privilege escalation
+    severity: High
+    base_score: 75
+    mitre_tactic: Privilege Escalation
+    mitre_technique_id: T1098
+    mitre_technique_name: Account Manipulation
+    description: IAM policy or privilege changes may indicate privilege escalation.
+    recommended_action: Review IAM permission change, check actor activity, and remove unauthorized privileges.
+
+  - rule_id: AWS-LOG-001
+    title: CloudTrail logging modified or disabled
+    severity: Critical
+    base_score: 100
+    mitre_tactic: Defense Evasion
+    mitre_technique_id: T1562.008
+    mitre_technique_name: Disable or Modify Cloud Logs
+    description: CloudTrail logging was modified or disabled. This may indicate an attempt to hide activity.
+    recommended_action: Verify whether CloudTrail changes were authorized, re-enable logging if needed, and review recent IAM activity.
+
+  - rule_id: AWS-ROOT-001
+    title: Root account console login detected
+    severity: Critical
+    base_score: 95
+    mitre_tactic: Initial Access
+    mitre_technique_id: T1078
+    mitre_technique_name: Valid Accounts
+    description: AWS root account login was detected. Root account usage should be rare and closely reviewed.
+    recommended_action: Verify whether root login was approved, confirm MFA usage, review all account activity after login, and avoid routine root account use.
+
+  - rule_id: AWS-S3-001
+    title: Possible public S3 bucket exposure
+    severity: High
+    base_score: 75
+    mitre_tactic: Collection
+    mitre_technique_id: T1530
+    mitre_technique_name: Data from Cloud Storage
+    description: S3 bucket permissions or policy activity may expose cloud storage data.
+    recommended_action: Review bucket policy and ACL settings, remove public access if unauthorized, and confirm business justification.
+
+  - rule_id: AWS-NET-001
+    title: Security group opened to the internet
+    severity: High
+    base_score: 75
+    mitre_tactic: Defense Evasion
+    mitre_technique_id: T1578
+    mitre_technique_name: Modify Cloud Compute Infrastructure
+    description: A security group was opened to the internet. This can expose cloud resources to external access.
+    recommended_action: Review the security group rule, restrict source ranges, and confirm whether the change was approved.
+
+  - rule_id: AWS-CORR-001
+    title: Possible cloud account compromise chain
+    severity: Critical
+    base_score: 100
+    mitre_tactic: Multiple
+    mitre_technique_id: T1078/T1098/T1562.008
+    mitre_technique_name: Valid Accounts, Account Manipulation, Disable or Modify Cloud Logs
+    description: Multiple suspicious events were correlated into a possible cloud account compromise chain.
+    recommended_action: Escalate for incident response, review all related user activity, rotate credentials, verify IAM changes, and confirm CloudTrail integrity.
