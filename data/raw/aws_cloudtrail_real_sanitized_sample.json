@@ -1,0 +1,153 @@
+{
+  "Records": [
+    {
+      "eventVersion": "1.11",
+      "userIdentity": {
+        "type": "IAMUser",
+        "principalId": "AIDAEXAMPLEPRINCIPAL",
+        "arn": "arn:aws:iam::123456789012:user/soc-demo-user",
+        "accountId": "123456789012",
+        "accessKeyId": "AKIAEXAMPLEACCESSKEY",
+        "userName": "soc-demo-user"
+      },
+      "eventTime": "2026-07-05T22:18:38Z",
+      "eventSource": "iam.amazonaws.com",
+      "eventName": "CreateUser",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "203.0.113.10",
+      "userAgent": "aws-cli/2.31.35 md/awscrt#1.0.0.dev0 ua/2.1 os/linux#6.12.25-amd64 md/arch#x86_64 lang/python#3.13.3 md/pyimpl#CPython m/b,Z,E,n cfg/retry-mode#standard md/installer#source md/distrib#kali.2025 md/prompt#off md/command#iam.create-user",
+      "requestParameters": {
+        "userName": "soc-demo-user"
+      },
+      "responseElements": {
+        "user": {
+          "path": "/",
+          "userName": "soc-demo-user",
+          "userId": "AIDAEXAMPLEUSERID",
+          "arn": "arn:aws:iam::123456789012:user/soc-demo-user",
+          "createDate": "2026-07-05T22:18:38Z"
+        }
+      },
+      "requestID": "00000000-0000-4000-8000-000000000000",
+      "eventID": "00000000-0000-4000-8000-000000000000",
+      "readOnly": false,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "123456789012",
+      "eventCategory": "Management",
+      "tlsDetails": {
+        "tlsVersion": "TLSv1.3",
+        "cipherSuite": "TLS_AES_128_GCM_SHA256",
+        "clientProvidedHostHeader": "iam.amazonaws.com"
+      }
+    },
+    {
+      "eventVersion": "1.11",
+      "userIdentity": {
+        "type": "IAMUser",
+        "principalId": "AIDAEXAMPLEPRINCIPAL",
+        "arn": "arn:aws:iam::123456789012:user/soc-demo-user",
+        "accountId": "123456789012",
+        "accessKeyId": "AKIAEXAMPLEACCESSKEY",
+        "userName": "soc-demo-user"
+      },
+      "eventTime": "2026-07-05T22:18:40Z",
+      "eventSource": "iam.amazonaws.com",
+      "eventName": "CreateAccessKey",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "203.0.113.10",
+      "userAgent": "aws-cli/2.31.35 md/awscrt#1.0.0.dev0 ua/2.1 os/linux#6.12.25-amd64 md/arch#x86_64 lang/python#3.13.3 md/pyimpl#CPython m/b,E,Z,n cfg/retry-mode#standard md/installer#source md/distrib#kali.2025 md/prompt#off md/command#iam.create-access-key",
+      "requestParameters": {
+        "userName": "soc-demo-user"
+      },
+      "responseElements": {
+        "accessKey": {
+          "userName": "soc-demo-user",
+          "accessKeyId": "AKIAEXAMPLEACCESSKEY",
+          "status": "Active",
+          "createDate": "2026-07-05T22:18:40Z"
+        }
+      },
+      "requestID": "00000000-0000-4000-8000-000000000000",
+      "eventID": "00000000-0000-4000-8000-000000000000",
+      "readOnly": false,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "123456789012",
+      "eventCategory": "Management",
+      "tlsDetails": {
+        "tlsVersion": "TLSv1.3",
+        "cipherSuite": "TLS_AES_128_GCM_SHA256",
+        "clientProvidedHostHeader": "iam.amazonaws.com"
+      }
+    },
+    {
+      "eventVersion": "1.11",
+      "userIdentity": {
+        "type": "IAMUser",
+        "principalId": "AIDAEXAMPLEPRINCIPAL",
+        "arn": "arn:aws:iam::123456789012:user/soc-demo-user",
+        "accountId": "123456789012",
+        "accessKeyId": "AKIAEXAMPLEACCESSKEY",
+        "userName": "soc-demo-user"
+      },
+      "eventTime": "2026-07-05T22:18:42Z",
+      "eventSource": "iam.amazonaws.com",
+      "eventName": "AttachUserPolicy",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "203.0.113.10",
+      "userAgent": "aws-cli/2.31.35 md/awscrt#1.0.0.dev0 ua/2.1 os/linux#6.12.25-amd64 md/arch#x86_64 lang/python#3.13.3 md/pyimpl#CPython m/E,b,n,Z cfg/retry-mode#standard md/installer#source md/distrib#kali.2025 md/prompt#off md/command#iam.attach-user-policy",
+      "requestParameters": {
+        "userName": "soc-demo-user",
+        "policyArn": "arn:aws:iam::aws:policy/ReadOnlyAccess"
+      },
+      "responseElements": null,
+      "requestID": "00000000-0000-4000-8000-000000000000",
+      "eventID": "00000000-0000-4000-8000-000000000000",
+      "readOnly": false,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "123456789012",
+      "eventCategory": "Management",
+      "tlsDetails": {
+        "tlsVersion": "TLSv1.3",
+        "cipherSuite": "TLS_AES_128_GCM_SHA256",
+        "clientProvidedHostHeader": "iam.amazonaws.com"
+      }
+    },
+    {
+      "eventVersion": "1.11",
+      "userIdentity": {
+        "type": "IAMUser",
+        "principalId": "AIDAEXAMPLEPRINCIPAL",
+        "arn": "arn:aws:iam::123456789012:user/soc-demo-user",
+        "accountId": "123456789012",
+        "accessKeyId": "AKIAEXAMPLEACCESSKEY",
+        "userName": "soc-demo-user"
+      },
+      "eventTime": "2026-07-05T22:18:45Z",
+      "eventSource": "iam.amazonaws.com",
+      "eventName": "DeleteAccessKey",
+      "awsRegion": "us-east-1",
+      "sourceIPAddress": "203.0.113.10",
+      "userAgent": "aws-cli/2.31.35 md/awscrt#1.0.0.dev0 ua/2.1 os/linux#6.12.25-amd64 md/arch#x86_64 lang/python#3.13.3 md/pyimpl#CPython m/Z,E,b,n cfg/retry-mode#standard md/installer#source md/distrib#kali.2025 md/prompt#off md/command#iam.delete-access-key",
+      "requestParameters": {
+        "userName": "soc-demo-user",
+        "accessKeyId": "AKIAEXAMPLEACCESSKEY"
+      },
+      "responseElements": null,
+      "requestID": "00000000-0000-4000-8000-000000000000",
+      "eventID": "00000000-0000-4000-8000-000000000000",
+      "readOnly": false,
+      "eventType": "AwsApiCall",
+      "managementEvent": true,
+      "recipientAccountId": "123456789012",
+      "eventCategory": "Management",
+      "tlsDetails": {
+        "tlsVersion": "TLSv1.3",
+        "cipherSuite": "TLS_AES_128_GCM_SHA256",
+        "clientProvidedHostHeader": "iam.amazonaws.com"
+      }
+    }
+  ]
+}

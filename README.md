@@ -483,3 +483,21 @@ Notification subjects include both priority and severity, for example:
 
 This simulates a realistic SOC notification workflow where only high-priority security events are escalated into the alert outbox.
 
+
+## Real AWS CloudTrail Event History Demo
+
+This project has been tested with both local sample CloudTrail logs and real AWS CloudTrail Event History logs collected from an AWS account.
+
+For safety, the raw AWS export is not committed because it may contain account IDs, ARNs, usernames, IP addresses, request IDs, and access key identifiers. Instead, the repository includes a sanitized real AWS sample:
+
+    data/raw/aws_cloudtrail_real_sanitized_sample.json
+
+Run the engine against the sanitized real AWS sample:
+
+    SOC_SOURCE_MODE=aws_event_history \
+    SOC_SOURCE_NAME=aws_cloudtrail_real_sanitized_sample \
+    SOC_ENVIRONMENT=aws_lab_sanitized \
+    SOC_INPUT_FILE=data/raw/aws_cloudtrail_real_sanitized_sample.json \
+    python src/main.py
+
+The sanitized sample includes real-world AWS management event types such as IAM access key creation and IAM policy attachment activity, with sensitive account-specific values replaced by safe demo values.

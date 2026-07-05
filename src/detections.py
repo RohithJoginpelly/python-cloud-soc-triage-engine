@@ -128,7 +128,7 @@ def detect_root_account_usage(events: list[dict]) -> list[dict]:
     for event in events:
         raw_event = event["raw_event"]
         user_identity = raw_event.get("userIdentity", {})
-        login_result = raw_event.get("responseElements", {}).get("ConsoleLogin")
+        login_result = (raw_event.get("responseElements") or {}).get("ConsoleLogin")
 
         if user_identity.get("type") == "Root" and event["event_name"] == "ConsoleLogin" and login_result == "Success":
             alerts.append({
