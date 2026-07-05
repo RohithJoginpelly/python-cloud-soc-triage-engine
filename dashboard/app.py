@@ -30,6 +30,72 @@ def load_ingestion_status(status_file="data/ingestion/ingestion_status.json"):
 
 
 
+
+
+def render_notification_priority_chart():
+    outbox = load_notification_outbox()
+
+    st.markdown("**Notification Priority Routing**")
+
+    if not outbox:
+        st.info("No notification outbox found. Run `python src/main.py` to generate notification data.")
+        return
+
+    notifications = outbox.get("notifications", [])
+
+    if not notifications:
+        st.info("No notifications were generated.")
+        return
+
+    priority_counts = {}
+
+    for notification in notifications:
+        priority = notification.get("priority", "Unknown")
+        priority_counts[priority] = priority_counts.get(priority, 0) + 1
+
+    st.bar_chart(priority_counts)
+
+
+
+def render_dashboard_charts(df):
+    st.subheader("SOC Analytics")
+
+    if df.empty:
+        st.info("No data available for analytics.")
+        return
+
+    chart_col1, chart_col2 = st.columns(2)
+
+    with chart_col1:
+        st.markdown("**Alerts by Severity**")
+        severity_counts = df["severity"].value_counts()
+        st.bar_chart(severity_counts)
+
+    with chart_col2:
+        st.markdown("**Cases by Status**")
+        status_counts = df["status"].value_counts()
+        st.bar_chart(status_counts)
+
+    chart_col3, chart_col4 = st.columns(2)
+
+    with chart_col3:
+        st.markdown("**MITRE Tactics**")
+        if "mitre_tactic" in df.columns:
+            tactic_counts = df["mitre_tactic"].value_counts()
+            st.bar_chart(tactic_counts)
+        else:
+            st.info("MITRE tactic data not available.")
+
+    with chart_col4:
+        st.markdown("**User Risk Levels**")
+        if "user_risk" in df.columns:
+            user_risk_counts = df["user_risk"].value_counts()
+            st.bar_chart(user_risk_counts)
+        else:
+            st.info("User risk data not available.")
+
+
+
 def load_notification_outbox(outbox_file="data/notifications/notification_outbox.json"):
     outbox_path = Path(outbox_file)
 
@@ -190,6 +256,9 @@ display_columns = [
     "status",
     "event_time"
 ]
+
+render_dashboard_charts(filtered_df)
+st.divider()
 
 st.dataframe(
     filtered_df[display_columns],
