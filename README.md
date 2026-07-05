@@ -1,4 +1,4 @@
-# Python Cloud SOC Triage Engine
+# Cloud SOC Triage Engine
 
 [![SOC Pipeline Validation](https://github.com/RohithJoginpelly/python-cloud-soc-triage-engine/actions/workflows/test.yml/badge.svg)](https://github.com/RohithJoginpelly/python-cloud-soc-triage-engine/actions/workflows/test.yml)
 
