@@ -1,0 +1,7 @@
+{
+  "mode": "sample",
+  "input_file": "data/raw/sample_cloudtrail.json",
+  "source_name": "local_sample_cloudtrail",
+  "environment": "lab",
+  "cloud_provider": "aws"
+}
