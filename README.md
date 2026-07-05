@@ -363,3 +363,30 @@ The sample CloudTrail-style logs allow the full detection, triage, reporting, an
 * Add severity trend charts
 
 
+
+
+## Recent Updates
+
+The project was recently extended with optional AWS ingestion and improved SOC triage features.
+
+Completed additions:
+
+- Optional AWS CloudTrail Event History collector
+- Ingestion configuration using config/ingestion_config.json
+- Source tagging for alerts and incidents
+- Ingestion status tracking in the Streamlit dashboard
+- Rule-based analyst summaries for each incident
+
+New files added:
+
+- src/aws_event_history_collector.py
+- src/ingestion_config.py
+- src/alert_summary.py
+- config/ingestion_config.json
+
+The AWS collector is optional. The project still runs fully offline by default using sample CloudTrail-style logs. When AWS logs are collected, the same detection, enrichment, MITRE mapping, reporting, and dashboard workflow can process the AWS-collected file.
+
+Example AWS-collected input command:
+
+SOC_INPUT_FILE=data/raw/aws_cloudtrail_event_history.json python src/main.py
+
