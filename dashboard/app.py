@@ -1,3 +1,4 @@
+import json
 import sys
 from pathlib import Path
 
@@ -14,6 +15,45 @@ if str(SRC_PATH) not in sys.path:
 from database import get_all_incidents, get_incident_by_id, update_incident
 
 
+
+def load_ingestion_status(status_file="data/ingestion/ingestion_status.json"):
+    status_path = Path(status_file)
+
+    if not status_path.exists():
+        return None
+
+    try:
+        with status_path.open("r", encoding="utf-8") as file:
+            return json.load(file)
+    except json.JSONDecodeError:
+        return None
+
+
+def render_ingestion_status():
+    status = load_ingestion_status()
+
+    st.subheader("Ingestion Status")
+
+    if not status:
+        st.info("No ingestion status found yet. Run `python src/main.py` to generate ingestion status.")
+        return
+
+    col1, col2, col3, col4 = st.columns(4)
+
+    col1.metric("Mode", status.get("mode", "unknown"))
+    col2.metric("Events Processed", status.get("processed_events", 0))
+    col3.metric("Rule Alerts", status.get("rule_alerts", 0))
+    col4.metric("Total Alerts", status.get("total_alerts", 0))
+
+    st.caption(
+        f"Source: {status.get('source_name', 'unknown')} | "
+        f"Environment: {status.get('environment', 'unknown')} | "
+        f"Cloud Provider: {status.get('cloud_provider', 'unknown')} | "
+        f"Input File: {status.get('input_file', 'unknown')} | "
+        f"Last Ingested: {status.get('ingested_at', 'unknown')}"
+    )
+
+
 st.set_page_config(
     page_title="Cloud SOC Triage Dashboard",
     page_icon="🛡️",
@@ -22,6 +62,9 @@ st.set_page_config(
 
 st.title("🛡️ Cloud SOC Triage Dashboard")
 st.caption("Offline AWS CloudTrail detection, MITRE mapping, local enrichment, and case management lab")
+
+render_ingestion_status()
+st.divider()
 
 incidents = get_all_incidents()
 
