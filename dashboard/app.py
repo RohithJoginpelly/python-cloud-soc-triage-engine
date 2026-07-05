@@ -32,6 +32,80 @@ def load_ingestion_status(status_file="data/ingestion/ingestion_status.json"):
 
 
 
+
+def apply_dashboard_theme():
+    st.markdown(
+        """
+        <style>
+        .main {
+            background-color: #0f172a;
+        }
+
+        section[data-testid="stSidebar"] {
+            background-color: #020617;
+            border-right: 1px solid #1e293b;
+        }
+
+        div[data-testid="stMetric"] {
+            background: linear-gradient(135deg, #111827 0%, #1e293b 100%);
+            border: 1px solid #334155;
+            border-radius: 16px;
+            padding: 16px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+        }
+
+        div[data-testid="stDataFrame"] {
+            border: 1px solid #334155;
+            border-radius: 14px;
+            overflow: hidden;
+        }
+
+        .soc-hero {
+            padding: 24px;
+            border-radius: 20px;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 55%, #0369a1 100%);
+            border: 1px solid #334155;
+            margin-bottom: 24px;
+        }
+
+        .soc-hero h1 {
+            color: #f8fafc;
+            font-size: 2.2rem;
+            margin-bottom: 0.4rem;
+        }
+
+        .soc-hero p {
+            color: #cbd5e1;
+            font-size: 1.02rem;
+            margin-bottom: 0;
+        }
+
+        .section-card {
+            padding: 18px;
+            border-radius: 16px;
+            background-color: #111827;
+            border: 1px solid #334155;
+            margin-bottom: 18px;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_dashboard_hero():
+    st.markdown(
+        """
+        <div class="soc-hero">
+            <h1>Cloud SOC Triage Engine</h1>
+            <p>Detection engineering dashboard for AWS CloudTrail alerts, MITRE mapping, analyst summaries, case tracking, and priority-based notification routing.</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+
 def render_notification_priority_chart():
     outbox = load_notification_outbox()
 
