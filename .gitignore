@@ -8,3 +8,4 @@ data/ingestion/ingestion_status.json
 data/notifications/
 data/raw/aws_cloudtrail_event_history.json
 .pytest_cache/
+data/normalized/*.jsonl
