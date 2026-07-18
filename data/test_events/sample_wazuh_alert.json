@@ -1,0 +1,32 @@
+{
+  "timestamp": "2026-07-18T16:30:00.000+0000",
+  "id": "1752856200.123456",
+  "rule": {
+    "id": "5712",
+    "level": 10,
+    "description": "Multiple SSH authentication failures",
+    "groups": [
+      "syslog",
+      "sshd",
+      "authentication_failed"
+    ]
+  },
+  "agent": {
+    "id": "001",
+    "name": "ubuntu-server",
+    "ip": "192.168.119.132"
+  },
+  "manager": {
+    "name": "wazuh-manager"
+  },
+  "data": {
+    "srcip": "192.168.119.131",
+    "srcport": "51432",
+    "srcuser": "admin"
+  },
+  "decoder": {
+    "name": "sshd"
+  },
+  "location": "/var/log/auth.log",
+  "full_log": "Failed password for admin from 192.168.119.131 port 51432 ssh2"
+}
