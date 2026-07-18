@@ -1,5 +1,7 @@
 import json
 import os
+import smtplib
+from email.message import EmailMessage
 from datetime import datetime, timezone
 
 
@@ -135,3 +137,60 @@ def generate_notifications(alerts):
                 file.write(notification["body"] + "\n\n")
 
     return outbox
+
+
+def smtp_is_configured():
+    required_vars = [
+        "SMTP_HOST",
+        "SMTP_PORT",
+        "SMTP_USERNAME",
+        "SMTP_PASSWORD",
+        "SMTP_FROM",
+        "SMTP_TO",
+    ]
+
+    return all(os.getenv(var) for var in required_vars)
+
+
+def send_smtp_notification(notification):
+    message = EmailMessage()
+    message["Subject"] = notification.get("subject", "Cloud SOC Alert")
+    message["From"] = os.getenv("SMTP_FROM")
+    message["To"] = os.getenv("SMTP_TO")
+    message.set_content(notification.get("body", ""))
+
+    smtp_host = os.getenv("SMTP_HOST")
+    smtp_port = int(os.getenv("SMTP_PORT", "587"))
+    smtp_username = os.getenv("SMTP_USERNAME")
+    smtp_password = os.getenv("SMTP_PASSWORD")
+
+    with smtplib.SMTP(smtp_host, smtp_port) as server:
+        server.starttls()
+        server.login(smtp_username, smtp_password)
+        server.send_message(message)
+
+
+def send_smtp_notifications(notifications):
+    if not smtp_is_configured():
+        return {
+            "smtp_enabled": False,
+            "smtp_sent": 0,
+            "smtp_status": "SMTP not configured. Notifications written to local outbox only.",
+        }
+
+    sent = 0
+    errors = []
+
+    for notification in notifications:
+        try:
+            send_smtp_notification(notification)
+            sent += 1
+        except Exception as error:
+            errors.append(str(error))
+
+    return {
+        "smtp_enabled": True,
+        "smtp_sent": sent,
+        "smtp_errors": errors,
+        "smtp_status": "SMTP delivery attempted.",
+    }
