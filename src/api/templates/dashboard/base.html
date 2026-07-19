@@ -2,10 +2,12 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+
     <meta
         name="viewport"
         content="width=device-width, initial-scale=1"
     >
+
     <title>
         {% block title %}AI SOC Copilot{% endblock %}
     </title>
@@ -15,10 +17,12 @@
         href="{{ url_for('static', path='/dashboard.css') }}"
     >
 </head>
+
 <body>
     <header class="topbar">
         <a class="brand" href="/dashboard">
             <span class="brand-mark">SOC</span>
+
             <span>
                 <strong>AI SOC Copilot</strong>
                 <small>Analyst Command Center</small>
@@ -30,6 +34,12 @@
             method="post"
             action="/dashboard/logout"
         >
+            <input
+                type="hidden"
+                name="csrf_token"
+                value="{{ csrf_token }}"
+            >
+
             <button
                 class="button button-secondary"
                 type="submit"

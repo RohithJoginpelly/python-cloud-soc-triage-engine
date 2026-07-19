@@ -35,6 +35,93 @@
     </div>
 </section>
 
+{% if updated %}
+<div class="alert alert-success">
+    Case workflow updated successfully.
+</div>
+{% endif %}
+
+<section class="panel">
+    <div class="panel-header">
+        <div>
+            <p class="eyebrow">Analyst workflow</p>
+            <h2>Update case</h2>
+        </div>
+    </div>
+
+    <form
+        method="post"
+        action="/dashboard/cases/{{ case.case_id }}/update"
+        class="case-update-form"
+    >
+        <input
+            type="hidden"
+            name="csrf_token"
+            value="{{ csrf_token }}"
+        >
+
+        <div>
+            <label for="case_status">
+                Status
+            </label>
+
+            <select
+                id="case_status"
+                name="case_status"
+                required
+            >
+                {% for status_name in case_statuses %}
+                <option
+                    value="{{ status_name }}"
+                    {% if case.status == status_name %}
+                    selected
+                    {% endif %}
+                >
+                    {{ status_name.replace("_", " ").title() }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div>
+            <label for="assigned_to">
+                Assigned analyst
+            </label>
+
+            <input
+                id="assigned_to"
+                name="assigned_to"
+                type="text"
+                value="{{ case.assigned_to or '' }}"
+                placeholder="analyst@example.com"
+            >
+        </div>
+
+        <div class="full-width">
+            <label for="note">
+                Investigation note
+            </label>
+
+            <textarea
+                id="note"
+                name="note"
+                rows="4"
+                maxlength="4000"
+                placeholder="Document the investigation activity..."
+            ></textarea>
+        </div>
+
+        <div class="full-width">
+            <button
+                class="button button-primary"
+                type="submit"
+            >
+                Save case update
+            </button>
+        </div>
+    </form>
+</section>
+
 <section class="detail-grid">
     <article class="panel">
         <h2>Incident summary</h2>
@@ -187,7 +274,7 @@
                 </p>
 
                 <small class="mono">
-                    {{ event.created_at }}
+                    {{ event.created_at | soc_datetime }}
                 </small>
             </div>
         </article>

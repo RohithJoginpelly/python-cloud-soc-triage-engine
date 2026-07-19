@@ -5,13 +5,15 @@
 {% block content %}
 <section class="login-shell">
     <div class="login-card">
-        <p class="eyebrow">Protected analyst access</p>
+        <p class="eyebrow">
+            Protected analyst access
+        </p>
 
         <h1>Sign in to the SOC dashboard</h1>
 
         <p class="muted">
-            Enter the API key configured for this SOC
-            Copilot deployment.
+            Enter the API key configured for this
+            SOC Copilot deployment.
         </p>
 
         {% if error %}
@@ -25,6 +27,12 @@
             action="/dashboard/login"
             class="login-form"
         >
+            <input
+                type="hidden"
+                name="csrf_token"
+                value="{{ csrf_token }}"
+            >
+
             <label for="api_key">
                 SOC API key
             </label>
