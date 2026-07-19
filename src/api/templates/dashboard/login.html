@@ -1,0 +1,50 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}SOC Login{% endblock %}
+
+{% block content %}
+<section class="login-shell">
+    <div class="login-card">
+        <p class="eyebrow">Protected analyst access</p>
+
+        <h1>Sign in to the SOC dashboard</h1>
+
+        <p class="muted">
+            Enter the API key configured for this SOC
+            Copilot deployment.
+        </p>
+
+        {% if error %}
+        <div class="alert alert-error">
+            {{ error }}
+        </div>
+        {% endif %}
+
+        <form
+            method="post"
+            action="/dashboard/login"
+            class="login-form"
+        >
+            <label for="api_key">
+                SOC API key
+            </label>
+
+            <input
+                id="api_key"
+                name="api_key"
+                type="password"
+                required
+                autocomplete="current-password"
+                autofocus
+            >
+
+            <button
+                class="button button-primary"
+                type="submit"
+            >
+                Open command center
+            </button>
+        </form>
+    </div>
+</section>
+{% endblock %}

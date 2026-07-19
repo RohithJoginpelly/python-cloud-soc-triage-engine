@@ -1,0 +1,197 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}{{ case.title }}{% endblock %}
+
+{% block content %}
+<a class="back-link" href="/dashboard">
+    ← Back to case queue
+</a>
+
+<section class="case-hero">
+    <div>
+        <div class="case-labels">
+            <span
+                class="priority priority-{{ case.priority | lower }}"
+            >
+                {{ case.priority }}
+            </span>
+
+            <span class="status">
+                {{ case.status.replace("_", " ") }}
+            </span>
+        </div>
+
+        <h1>{{ case.title }}</h1>
+
+        <p class="mono">
+            {{ case.case_id }}
+        </p>
+    </div>
+
+    <div class="risk-score">
+        <span>Risk score</span>
+        <strong>{{ case.risk_score }}</strong>
+        <small>{{ case.risk_level }}</small>
+    </div>
+</section>
+
+<section class="detail-grid">
+    <article class="panel">
+        <h2>Incident summary</h2>
+
+        <p>
+            {{ packet.get("summary", "No summary available.") }}
+        </p>
+
+        <dl class="detail-list">
+            <div>
+                <dt>Source IP</dt>
+                <dd>
+                    {{ packet.get("source_ip") or "Unknown" }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Username</dt>
+                <dd>
+                    {{ packet.get("username") or "Unknown" }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Destination</dt>
+                <dd>
+                    {{ packet.get("destination_host") or "Unknown" }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Evidence events</dt>
+                <dd>
+                    {{ packet.get("evidence_count", 0) }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>First seen</dt>
+                <dd class="mono">
+                    {{ case.packet.get("first_seen", "Unknown") }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Last seen</dt>
+                <dd class="mono">
+                    {{ case.packet.get("last_seen", "Unknown") }}
+                </dd>
+            </div>
+        </dl>
+    </article>
+
+    <article class="panel">
+        <h2>MITRE ATT&amp;CK</h2>
+
+        {% if mitre_techniques %}
+        <div class="technique-list">
+            {% for technique in mitre_techniques %}
+            <div class="technique">
+                <strong>
+                    {{ technique.get("technique_id") }}
+                    —
+                    {{ technique.get("name") }}
+                </strong>
+
+                <p>
+                    {{ technique.get("evidence") }}
+                </p>
+
+                <small>
+                    Confidence:
+                    {{ technique.get("confidence") }}
+                </small>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="muted">
+            No deterministic ATT&amp;CK mapping.
+        </p>
+        {% endif %}
+    </article>
+</section>
+
+{% if copilot_draft %}
+<section class="panel">
+    <div class="panel-header">
+        <div>
+            <p class="eyebrow">Validated Copilot output</p>
+            <h2>AI-assisted assessment</h2>
+        </div>
+    </div>
+
+    <h3>Executive summary</h3>
+    <p>
+        {{ copilot_draft.get("executive_summary") }}
+    </p>
+
+    <h3>Assessment</h3>
+    <p>
+        {{ copilot_draft.get("assessment") }}
+    </p>
+
+    <div class="detail-grid">
+        <div>
+            <h3>Investigation steps</h3>
+
+            <ol>
+                {% for step in copilot_draft.get(
+                    "investigation_steps",
+                    []
+                ) %}
+                <li>{{ step }}</li>
+                {% endfor %}
+            </ol>
+        </div>
+
+        <div>
+            <h3>Uncertainties</h3>
+
+            <ul>
+                {% for uncertainty in copilot_draft.get(
+                    "uncertainties",
+                    []
+                ) %}
+                <li>{{ uncertainty }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+</section>
+{% endif %}
+
+<section class="panel">
+    <h2>Audit timeline</h2>
+
+    <div class="timeline">
+        {% for event in audit_events %}
+        <article class="timeline-event">
+            <div class="timeline-marker"></div>
+
+            <div>
+                <strong>
+                    {{ event.event_type.replace("_", " ").title() }}
+                </strong>
+
+                <p>
+                    Actor: {{ event.actor }}
+                </p>
+
+                <small class="mono">
+                    {{ event.created_at }}
+                </small>
+            </div>
+        </article>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}

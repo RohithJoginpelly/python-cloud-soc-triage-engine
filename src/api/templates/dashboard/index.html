@@ -1,0 +1,155 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}SOC Case Queue{% endblock %}
+
+{% block content %}
+<section class="page-heading">
+    <div>
+        <p class="eyebrow">Operations overview</p>
+        <h1>Security case queue</h1>
+        <p class="muted">
+            Evidence-backed incidents generated from
+            correlated security telemetry.
+        </p>
+    </div>
+</section>
+
+<section class="metric-grid">
+    <article class="metric-card">
+        <span>Total cases</span>
+        <strong>{{ metrics.total }}</strong>
+    </article>
+
+    <article class="metric-card">
+        <span>Open cases</span>
+        <strong>{{ metrics.open }}</strong>
+    </article>
+
+    <article class="metric-card metric-critical">
+        <span>Open P1 cases</span>
+        <strong>{{ metrics.p1 }}</strong>
+    </article>
+
+    <article class="metric-card">
+        <span>Unassigned</span>
+        <strong>{{ metrics.unassigned }}</strong>
+    </article>
+</section>
+
+<section class="panel">
+    <div class="panel-header">
+        <div>
+            <h2>Cases</h2>
+            <p class="muted">
+                Prioritized by deterministic risk scoring.
+            </p>
+        </div>
+
+        <form method="get" action="/dashboard">
+            <select
+                name="case_status"
+                onchange="this.form.submit()"
+            >
+                <option value="">
+                    All statuses
+                </option>
+
+                {% for status_name in [
+                    "new",
+                    "triage",
+                    "investigating",
+                    "contained",
+                    "resolved",
+                    "closed",
+                    "false_positive"
+                ] %}
+                <option
+                    value="{{ status_name }}"
+                    {% if selected_status == status_name %}
+                    selected
+                    {% endif %}
+                >
+                    {{ status_name.replace("_", " ").title() }}
+                    ({{ status_counts.get(status_name, 0) }})
+                </option>
+                {% endfor %}
+            </select>
+        </form>
+    </div>
+
+    {% if cases %}
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Priority</th>
+                    <th>Case</th>
+                    <th>Status</th>
+                    <th>Risk</th>
+                    <th>Assigned</th>
+                    <th>Updated</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for case in cases %}
+                <tr>
+                    <td>
+                        <span
+                            class="priority priority-{{ case.priority | lower }}"
+                        >
+                            {{ case.priority }}
+                        </span>
+                    </td>
+
+                    <td>
+                        <a
+                            class="case-link"
+                            href="/dashboard/cases/{{ case.case_id }}"
+                        >
+                            {{ case.title }}
+                        </a>
+
+                        <small class="mono">
+                            {{ case.case_id }}
+                        </small>
+                    </td>
+
+                    <td>
+                        <span class="status">
+                            {{ case.status.replace("_", " ") }}
+                        </span>
+                    </td>
+
+                    <td>
+                        <strong>
+                            {{ case.risk_score }}/100
+                        </strong>
+                        <small>
+                            {{ case.risk_level }}
+                        </small>
+                    </td>
+
+                    <td>
+                        {{ case.assigned_to or "Unassigned" }}
+                    </td>
+
+                    <td class="mono">
+                        {{ case.updated_at }}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <h3>No cases found</h3>
+        <p>
+            Run the SSH pipeline to create the first
+            evidence-backed SOC case.
+        </p>
+    </div>
+    {% endif %}
+</section>
+{% endblock %}

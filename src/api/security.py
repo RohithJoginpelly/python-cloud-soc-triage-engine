@@ -9,6 +9,7 @@ from starlette.responses import JSONResponse
 
 
 PUBLIC_PATHS = {
+    "/",
     "/health",
     "/docs",
     "/docs/oauth2-redirect",
@@ -16,9 +17,27 @@ PUBLIC_PATHS = {
     "/openapi.json",
 }
 
+PUBLIC_PREFIXES = {
+    "/dashboard",
+    "/static",
+}
+
+
+def _is_public_path(path: str) -> bool:
+    """Return True when middleware authentication is skipped."""
+
+    if path in PUBLIC_PATHS:
+        return True
+
+    return any(
+        path == prefix
+        or path.startswith(f"{prefix}/")
+        for prefix in PUBLIC_PREFIXES
+    )
+
 
 def configure_api_key_auth(app: FastAPI) -> None:
-    """Require an API key for protected API endpoints."""
+    """Require an API key for protected JSON API endpoints."""
 
     @app.middleware("http")
     async def require_api_key(
@@ -27,7 +46,7 @@ def configure_api_key_auth(app: FastAPI) -> None:
     ):
         """Authenticate requests before route processing."""
 
-        if request.url.path in PUBLIC_PATHS:
+        if _is_public_path(request.url.path):
             return await call_next(request)
 
         configured_key = getattr(
@@ -36,9 +55,10 @@ def configure_api_key_auth(app: FastAPI) -> None:
             None,
         )
 
-        # Fail closed rather than accidentally exposing the API
-        # when the server administrator forgot to configure a key.
-        if not isinstance(configured_key, str) or not configured_key:
+        if (
+            not isinstance(configured_key, str)
+            or not configured_key
+        ):
             return JSONResponse(
                 status_code=503,
                 content={
@@ -63,7 +83,9 @@ def configure_api_key_auth(app: FastAPI) -> None:
             return JSONResponse(
                 status_code=401,
                 content={
-                    "detail": "Invalid or missing SOC API key"
+                    "detail": (
+                        "Invalid or missing SOC API key"
+                    )
                 },
                 headers={
                     "WWW-Authenticate": "ApiKey"

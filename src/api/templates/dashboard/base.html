@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1"
+    >
+    <title>
+        {% block title %}AI SOC Copilot{% endblock %}
+    </title>
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', path='/dashboard.css') }}"
+    >
+</head>
+<body>
+    <header class="topbar">
+        <a class="brand" href="/dashboard">
+            <span class="brand-mark">SOC</span>
+            <span>
+                <strong>AI SOC Copilot</strong>
+                <small>Analyst Command Center</small>
+            </span>
+        </a>
+
+        {% if request.session.get("authenticated") %}
+        <form
+            method="post"
+            action="/dashboard/logout"
+        >
+            <button
+                class="button button-secondary"
+                type="submit"
+            >
+                Sign out
+            </button>
+        </form>
+        {% endif %}
+    </header>
+
+    <main class="page">
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>

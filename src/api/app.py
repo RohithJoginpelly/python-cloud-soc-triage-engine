@@ -3,7 +3,11 @@
 from __future__ import annotations
 
 import os
+import secrets
 from pathlib import Path
+
+from fastapi.staticfiles import StaticFiles
+from starlette.middleware.sessions import SessionMiddleware
 
 from fastapi import (
     FastAPI,
@@ -12,6 +16,7 @@ from fastapi import (
     status,
 )
 
+from src.api.dashboard import router as dashboard_router
 from src.api.dependencies import (
     CaseStoreDependency,
     DatabasePathDependency,
@@ -103,6 +108,7 @@ def create_app(
     database_path: str | Path | None = None,
     input_root: str | Path | None = None,
     api_key: str | None = None,
+    session_secret: str | None = None,
 ) -> FastAPI:
     """Create and configure the SOC API application."""
 
@@ -140,6 +146,21 @@ def create_app(
         else None
     )
 
+    configured_session_secret = (
+        session_secret
+        or os.getenv("SOC_SESSION_SECRET")
+        or resolved_api_key
+        or secrets.token_urlsafe(48)
+    )
+
+    https_only = (
+        os.getenv(
+            "SOC_SESSION_HTTPS_ONLY",
+            "false",
+        ).strip().lower()
+        in {"1", "true", "yes", "on"}
+    )
+
     app = FastAPI(
         title="AI SOC Copilot API",
         description=(
@@ -157,7 +178,28 @@ def create_app(
     )
     app.state.api_key = resolved_api_key
 
+    app.add_middleware(
+        SessionMiddleware,
+        secret_key=configured_session_secret,
+        same_site="lax",
+        https_only=https_only,
+        max_age=28800,
+    )
+
     configure_api_key_auth(app)
+
+    static_directory = (
+        Path(__file__).resolve().parent
+        / "static"
+    )
+
+    app.mount(
+        "/static",
+        StaticFiles(
+            directory=str(static_directory)
+        ),
+        name="static",
+    )
 
     @app.get(
         "/health",
@@ -342,5 +384,9 @@ def create_app(
         return PipelineResponse.model_validate(
             summary.to_dict()
         )
+
+    app.include_router(
+        dashboard_router
+    )
 
     return app
