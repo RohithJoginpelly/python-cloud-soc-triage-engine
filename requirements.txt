@@ -53,3 +53,5 @@ boto3
 PyYAML
 openai
 pydantic>=2
+fastapi[standard]>=0.115,<1.0
+httpx2>=2,<3
