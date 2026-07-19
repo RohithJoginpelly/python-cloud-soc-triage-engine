@@ -1,0 +1,54 @@
+{
+  "alerts": [
+    {
+      "timestamp": "2026-07-18T16:30:00.000+0000",
+      "id": "1752856200.123456",
+      "rule": {
+        "id": "5712",
+        "level": 10,
+        "description": "Multiple SSH authentication failures",
+        "groups": [
+          "syslog",
+          "sshd",
+          "authentication_failed"
+        ]
+      },
+      "agent": {
+        "id": "001",
+        "name": "ubuntu-server",
+        "ip": "192.168.119.132"
+      },
+      "data": {
+        "srcip": "192.168.119.131",
+        "srcport": "51432",
+        "srcuser": "admin"
+      },
+      "location": "/var/log/auth.log"
+    },
+    {
+      "timestamp": "2026-07-18T16:36:00.000+0000",
+      "id": "1752856560.123457",
+      "rule": {
+        "id": "5715",
+        "level": 5,
+        "description": "SSH authentication successful",
+        "groups": [
+          "syslog",
+          "sshd",
+          "authentication_success"
+        ]
+      },
+      "agent": {
+        "id": "001",
+        "name": "ubuntu-server",
+        "ip": "192.168.119.132"
+      },
+      "data": {
+        "srcip": "192.168.119.131",
+        "srcport": "51518",
+        "srcuser": "admin"
+      },
+      "location": "/var/log/auth.log"
+    }
+  ]
+}
