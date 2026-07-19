@@ -85,6 +85,7 @@ class NormalizedEvent:
     destination_ip: str | None = None
     destination_port: int | None = None
     destination_host: str | None = None
+    network_protocol: str | None = None
 
     # Cloud information
     cloud_provider: str | None = None
@@ -112,6 +113,11 @@ class NormalizedEvent:
         self.action = self.action.strip()
         self.outcome = self.outcome.strip().lower()
         self.severity = self.severity.strip().lower()
+
+        if isinstance(self.network_protocol, str):
+            self.network_protocol = (
+                self.network_protocol.strip().lower() or None
+            )
 
         if not self.timestamp:
             raise ValueError("timestamp is required")
