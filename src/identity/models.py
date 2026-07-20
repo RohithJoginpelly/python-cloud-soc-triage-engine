@@ -53,3 +53,16 @@ class AnalystAccount:
             "role",
             normalized_role,
         )
+
+
+@dataclass(frozen=True, slots=True)
+class IdentityAuditEvent:
+    """Append-only identity security audit event."""
+
+    event_id: str
+    actor_user_id: str | None
+    actor_email: str
+    target_user_id: str | None
+    action: str
+    details: dict[str, object]
+    created_at: str

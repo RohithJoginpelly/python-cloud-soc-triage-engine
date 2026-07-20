@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
@@ -10,6 +11,7 @@ from uuid import uuid4
 from src.identity.models import (
     ALLOWED_ANALYST_ROLES,
     AnalystAccount,
+    IdentityAuditEvent,
 )
 from src.identity.passwords import (
     hash_password,
@@ -60,6 +62,7 @@ class IdentityStore:
         )
 
         self._initialize_database()
+        self._initialize_audit_database()
 
     def _connect(
         self,
@@ -464,5 +467,393 @@ class IdentityStore:
 
         return [
             self._row_to_account(row)
+            for row in rows
+        ]
+
+    def _initialize_audit_database(
+        self,
+    ) -> None:
+        """Create append-only identity audit storage."""
+
+        with self._connect() as connection:
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS
+                identity_audit_events (
+                    event_id TEXT PRIMARY KEY,
+                    actor_user_id TEXT,
+                    actor_email TEXT NOT NULL,
+                    target_user_id TEXT,
+                    action TEXT NOT NULL,
+                    details_json TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                )
+                """
+            )
+
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS
+                idx_identity_audit_target
+                ON identity_audit_events(
+                    target_user_id,
+                    created_at
+                )
+                """
+            )
+
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS
+                idx_identity_audit_actor
+                ON identity_audit_events(
+                    actor_user_id,
+                    created_at
+                )
+                """
+            )
+
+    @staticmethod
+    def _row_to_audit_event(
+        row: sqlite3.Row,
+    ) -> IdentityAuditEvent:
+        """Convert a database row into an audit event."""
+
+        try:
+            details = json.loads(
+                row["details_json"]
+            )
+        except (
+            json.JSONDecodeError,
+            TypeError,
+        ):
+            details = {}
+
+        if not isinstance(details, dict):
+            details = {}
+
+        return IdentityAuditEvent(
+            event_id=row["event_id"],
+            actor_user_id=row["actor_user_id"],
+            actor_email=row["actor_email"],
+            target_user_id=row["target_user_id"],
+            action=row["action"],
+            details=details,
+            created_at=row["created_at"],
+        )
+
+    @staticmethod
+    def _insert_audit_event(
+        connection: sqlite3.Connection,
+        *,
+        actor_user_id: str | None,
+        actor_email: str,
+        target_user_id: str | None,
+        action: str,
+        details: dict[str, object] | None = None,
+    ) -> str:
+        """Insert an identity audit event transactionally."""
+
+        normalized_actor = actor_email.strip().lower()
+        normalized_action = action.strip().lower()
+
+        if not normalized_actor:
+            raise ValueError(
+                "Audit actor email is required."
+            )
+
+        if not normalized_action:
+            raise ValueError(
+                "Audit action is required."
+            )
+
+        event_id = str(uuid4())
+        timestamp = _utc_now()
+
+        connection.execute(
+            """
+            INSERT INTO identity_audit_events (
+                event_id,
+                actor_user_id,
+                actor_email,
+                target_user_id,
+                action,
+                details_json,
+                created_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                event_id,
+                actor_user_id,
+                normalized_actor,
+                target_user_id,
+                normalized_action,
+                json.dumps(
+                    details or {},
+                    sort_keys=True,
+                ),
+                timestamp,
+            ),
+        )
+
+        return event_id
+
+    def record_audit_event(
+        self,
+        *,
+        actor_user_id: str | None,
+        actor_email: str,
+        target_user_id: str | None,
+        action: str,
+        details: dict[str, object] | None = None,
+    ) -> IdentityAuditEvent:
+        """Record and return an identity audit event."""
+
+        with self._connect() as connection:
+            event_id = self._insert_audit_event(
+                connection,
+                actor_user_id=actor_user_id,
+                actor_email=actor_email,
+                target_user_id=target_user_id,
+                action=action,
+                details=details,
+            )
+
+            row = connection.execute(
+                """
+                SELECT
+                    event_id,
+                    actor_user_id,
+                    actor_email,
+                    target_user_id,
+                    action,
+                    details_json,
+                    created_at
+                FROM identity_audit_events
+                WHERE event_id = ?
+                """,
+                (event_id,),
+            ).fetchone()
+
+        if row is None:
+            raise RuntimeError(
+                "Identity audit event creation failed."
+            )
+
+        return self._row_to_audit_event(row)
+
+    def change_password(
+        self,
+        user_id: str,
+        *,
+        current_password: str,
+        new_password: str,
+    ) -> AnalystAccount:
+        """Change an analyst's password after verification."""
+
+        with self._connect() as connection:
+            row = connection.execute(
+                """
+                SELECT
+                    user_id,
+                    email,
+                    password_hash,
+                    is_active
+                FROM analyst_accounts
+                WHERE user_id = ?
+                """,
+                (user_id,),
+            ).fetchone()
+
+            if row is None:
+                raise KeyError(
+                    f"Unknown account: {user_id}"
+                )
+
+            if not bool(row["is_active"]):
+                raise ValueError(
+                    "Disabled accounts cannot "
+                    "change passwords."
+                )
+
+            if not verify_password(
+                current_password,
+                row["password_hash"],
+            ):
+                raise ValueError(
+                    "Current password is incorrect."
+                )
+
+            if verify_password(
+                new_password,
+                row["password_hash"],
+            ):
+                raise ValueError(
+                    "New password must be different "
+                    "from the current password."
+                )
+
+            new_password_hash = hash_password(
+                new_password
+            )
+
+            timestamp = _utc_now()
+
+            connection.execute(
+                """
+                UPDATE analyst_accounts
+                SET
+                    password_hash = ?,
+                    updated_at = ?
+                WHERE user_id = ?
+                """,
+                (
+                    new_password_hash,
+                    timestamp,
+                    user_id,
+                ),
+            )
+
+            self._insert_audit_event(
+                connection,
+                actor_user_id=user_id,
+                actor_email=row["email"],
+                target_user_id=user_id,
+                action="password_changed",
+                details={
+                    "method": "self_service",
+                },
+            )
+
+        account = self.get_by_id(user_id)
+
+        if account is None:
+            raise RuntimeError(
+                "Password change failed."
+            )
+
+        return account
+
+    def reset_password(
+        self,
+        user_id: str,
+        *,
+        new_password: str,
+        actor_user_id: str,
+        actor_email: str,
+    ) -> AnalystAccount:
+        """Reset another account's password as an admin."""
+
+        new_password_hash = hash_password(
+            new_password
+        )
+
+        with self._connect() as connection:
+            target = connection.execute(
+                """
+                SELECT
+                    user_id,
+                    email
+                FROM analyst_accounts
+                WHERE user_id = ?
+                """,
+                (user_id,),
+            ).fetchone()
+
+            if target is None:
+                raise KeyError(
+                    f"Unknown account: {user_id}"
+                )
+
+            timestamp = _utc_now()
+
+            connection.execute(
+                """
+                UPDATE analyst_accounts
+                SET
+                    password_hash = ?,
+                    updated_at = ?
+                WHERE user_id = ?
+                """,
+                (
+                    new_password_hash,
+                    timestamp,
+                    user_id,
+                ),
+            )
+
+            self._insert_audit_event(
+                connection,
+                actor_user_id=actor_user_id,
+                actor_email=actor_email,
+                target_user_id=user_id,
+                action="password_reset",
+                details={
+                    "method": "administrator",
+                    "target_email": target["email"],
+                },
+            )
+
+        account = self.get_by_id(user_id)
+
+        if account is None:
+            raise RuntimeError(
+                "Password reset failed."
+            )
+
+        return account
+
+    def list_audit_events(
+        self,
+        *,
+        target_user_id: str | None = None,
+        limit: int = 100,
+    ) -> list[IdentityAuditEvent]:
+        """List recent identity audit events."""
+
+        normalized_limit = max(
+            1,
+            min(int(limit), 500),
+        )
+
+        query = """
+            SELECT
+                event_id,
+                actor_user_id,
+                actor_email,
+                target_user_id,
+                action,
+                details_json,
+                created_at
+            FROM identity_audit_events
+        """
+
+        parameters: list[object] = []
+
+        if target_user_id is not None:
+            query += """
+                WHERE target_user_id = ?
+            """
+
+            parameters.append(
+                target_user_id
+            )
+
+        query += """
+            ORDER BY created_at DESC, event_id DESC
+            LIMIT ?
+        """
+
+        parameters.append(normalized_limit)
+
+        with self._connect() as connection:
+            rows = connection.execute(
+                query,
+                parameters,
+            ).fetchall()
+
+        return [
+            self._row_to_audit_event(row)
             for row in rows
         ]
