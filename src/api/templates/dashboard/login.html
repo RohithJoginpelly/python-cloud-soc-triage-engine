@@ -15,6 +15,13 @@
             Use your individual analyst account.
         </p>
 
+        {% if request.query_params.get("notice") == "password-changed" %}
+        <div class="alert alert-success">
+            Password changed successfully.
+            Sign in with your new password.
+        </div>
+        {% endif %}
+
         {% if error %}
         <div class="alert alert-error">
             {{ error }}

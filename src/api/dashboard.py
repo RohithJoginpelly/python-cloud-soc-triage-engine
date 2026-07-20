@@ -303,7 +303,9 @@ def dashboard_home(
 ) -> Response:
     """Display metrics and the analyst case queue."""
 
-    if not _authenticated(request):
+    account = _current_account(request)
+
+    if account is None:
         return _login_redirect()
 
     store = request.app.state.case_store
@@ -366,6 +368,7 @@ def dashboard_home(
         name="dashboard/index.html",
         context={
             "cases": cases,
+            "current_account": account,
             "metrics": metrics,
             "status_counts": status_counts,
             "selected_status": normalized_status,
@@ -1095,4 +1098,275 @@ def dashboard_admin_set_active(
             f"?notice={notice}"
         ),
         status_code=status.HTTP_303_SEE_OTHER,
+    )
+
+
+@router.get(
+    "/dashboard/account/password",
+    response_class=HTMLResponse,
+)
+def dashboard_account_password(
+    request: Request,
+) -> Response:
+    """Display the self-service password-change page."""
+
+    account = _current_account(request)
+
+    if account is None:
+        return _login_redirect()
+
+    return templates.TemplateResponse(
+        request=request,
+        name="dashboard/account/password.html",
+        context={
+            "current_account": account,
+            "csrf_token": _csrf_token(request),
+            "error": None,
+        },
+    )
+
+
+@router.post(
+    "/dashboard/account/password",
+    response_class=HTMLResponse,
+)
+def dashboard_change_password(
+    request: Request,
+    csrf_token: Annotated[
+        str,
+        Form(min_length=1),
+    ],
+    current_password: Annotated[
+        str,
+        Form(min_length=1),
+    ],
+    new_password: Annotated[
+        str,
+        Form(min_length=12),
+    ],
+    new_password_confirmation: Annotated[
+        str,
+        Form(min_length=12),
+    ],
+) -> Response:
+    """Change the authenticated analyst's password."""
+
+    account = _current_account(request)
+
+    if account is None:
+        return _login_redirect()
+
+    if not _valid_csrf_token(
+        request,
+        csrf_token,
+    ):
+        return _csrf_failure()
+
+    if (
+        new_password
+        != new_password_confirmation
+    ):
+        return templates.TemplateResponse(
+            request=request,
+            name="dashboard/account/password.html",
+            context={
+                "current_account": account,
+                "csrf_token": _csrf_token(request),
+                "error": (
+                    "New password confirmation "
+                    "does not match."
+                ),
+            },
+            status_code=(
+                status.HTTP_400_BAD_REQUEST
+            ),
+        )
+
+    identity_store = (
+        request.app.state.identity_store
+    )
+
+    try:
+        identity_store.change_password(
+            account.user_id,
+            current_password=current_password,
+            new_password=new_password,
+        )
+    except ValueError as error:
+        return templates.TemplateResponse(
+            request=request,
+            name="dashboard/account/password.html",
+            context={
+                "current_account": account,
+                "csrf_token": _csrf_token(request),
+                "error": str(error),
+            },
+            status_code=(
+                status.HTTP_400_BAD_REQUEST
+            ),
+        )
+    except KeyError:
+        request.session.clear()
+
+        return _login_redirect()
+
+    request.session.clear()
+
+    return RedirectResponse(
+        url=(
+            "/dashboard/login"
+            "?notice=password-changed"
+        ),
+        status_code=status.HTTP_303_SEE_OTHER,
+    )
+
+
+@router.post(
+    "/dashboard/admin/analysts/"
+    "{user_id}/password-reset"
+)
+def dashboard_admin_reset_password(
+    request: Request,
+    user_id: str,
+    csrf_token: Annotated[
+        str,
+        Form(min_length=1),
+    ],
+    new_password: Annotated[
+        str,
+        Form(min_length=12),
+    ],
+    new_password_confirmation: Annotated[
+        str,
+        Form(min_length=12),
+    ],
+) -> Response:
+    """Reset another analyst's password as an admin."""
+
+    account = _admin_account(request)
+
+    if account is None:
+        return _login_redirect()
+
+    if account is False:
+        return _permission_denied(
+            "Administrator access is required."
+        )
+
+    if not _valid_csrf_token(
+        request,
+        csrf_token,
+    ):
+        return _csrf_failure()
+
+    if user_id == account.user_id:
+        return _permission_denied(
+            "Use the Change password page "
+            "to update your own password."
+        )
+
+    if (
+        new_password
+        != new_password_confirmation
+    ):
+        return HTMLResponse(
+            content=(
+                "<h1>Password reset failed</h1>"
+                "<p>Password confirmation "
+                "does not match.</p>"
+            ),
+            status_code=(
+                status.HTTP_400_BAD_REQUEST
+            ),
+        )
+
+    identity_store = (
+        request.app.state.identity_store
+    )
+
+    target = identity_store.get_by_id(
+        user_id
+    )
+
+    if target is None:
+        return HTMLResponse(
+            content="<h1>Account not found</h1>",
+            status_code=status.HTTP_404_NOT_FOUND,
+        )
+
+    try:
+        identity_store.reset_password(
+            target.user_id,
+            new_password=new_password,
+            actor_user_id=account.user_id,
+            actor_email=account.email,
+        )
+    except ValueError as error:
+        return HTMLResponse(
+            content=(
+                "<h1>Password reset failed</h1>"
+                f"<p>{error}</p>"
+            ),
+            status_code=(
+                status.HTTP_400_BAD_REQUEST
+            ),
+        )
+
+    return RedirectResponse(
+        url=(
+            "/dashboard/admin/analysts"
+            "?notice=password-reset"
+        ),
+        status_code=status.HTTP_303_SEE_OTHER,
+    )
+
+
+@router.get(
+    "/dashboard/admin/identity-audit",
+    response_class=HTMLResponse,
+)
+def dashboard_identity_audit(
+    request: Request,
+) -> Response:
+    """Display recent identity security events."""
+
+    account = _admin_account(request)
+
+    if account is None:
+        return _login_redirect()
+
+    if account is False:
+        return _permission_denied(
+            "Administrator access is required."
+        )
+
+    identity_store = (
+        request.app.state.identity_store
+    )
+
+    analysts = identity_store.list_accounts()
+
+    account_lookup = {
+        analyst.user_id: analyst
+        for analyst in analysts
+    }
+
+    audit_events = (
+        identity_store.list_audit_events(
+            limit=250
+        )
+    )
+
+    return templates.TemplateResponse(
+        request=request,
+        name=(
+            "dashboard/admin/"
+            "identity_audit.html"
+        ),
+        context={
+            "current_account": account,
+            "csrf_token": _csrf_token(request),
+            "audit_events": audit_events,
+            "account_lookup": account_lookup,
+        },
     )
