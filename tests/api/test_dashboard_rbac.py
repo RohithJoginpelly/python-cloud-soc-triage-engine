@@ -313,3 +313,84 @@ def test_senior_can_reassign_and_resolve(
     assert audit_events[-1].actor == (
         SENIOR_EMAIL
     )
+
+
+def test_analyst_ui_hides_reassignment_and_terminal_statuses(
+    tmp_path,
+):
+    app = build_app(tmp_path)
+
+    app.state.case_store.save_packet(
+        build_packet()
+    )
+
+    client = TestClient(app)
+
+    login(
+        client,
+        email=ANALYST_EMAIL,
+        password=ANALYST_PASSWORD,
+    )
+
+    response = client.get(
+        "/dashboard/cases/case-rbac-test"
+    )
+
+    assert response.status_code == 200
+
+    assert 'id="self_assign_form"' in response.text
+
+    assert 'id="assignee_control"' not in response.text
+
+    assert (
+        'id="status_option_resolved"'
+        not in response.text
+    )
+
+    assert (
+        'id="status_option_closed"'
+        not in response.text
+    )
+
+    assert (
+        "Resolving or closing a case requires"
+        in response.text
+    )
+
+
+def test_senior_ui_shows_reassignment_and_terminal_statuses(
+    tmp_path,
+):
+    app = build_app(tmp_path)
+
+    app.state.case_store.save_packet(
+        build_packet()
+    )
+
+    client = TestClient(app)
+
+    login(
+        client,
+        email=SENIOR_EMAIL,
+        password=SENIOR_PASSWORD,
+    )
+
+    response = client.get(
+        "/dashboard/cases/case-rbac-test"
+    )
+
+    assert response.status_code == 200
+
+    assert 'id="assignee_control"' in response.text
+
+    assert (
+        'id="status_option_resolved"'
+        in response.text
+    )
+
+    assert (
+        'id="status_option_closed"'
+        in response.text
+    )
+
+    assert 'id="self_assign_form"' not in response.text

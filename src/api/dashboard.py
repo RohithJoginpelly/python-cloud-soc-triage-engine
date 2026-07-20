@@ -383,7 +383,9 @@ def dashboard_case_detail(
 ) -> Response:
     """Display complete details for one SOC case."""
 
-    if not _authenticated(request):
+    account = _current_account(request)
+
+    if account is None:
         return _login_redirect()
 
     store = request.app.state.case_store
@@ -424,11 +426,58 @@ def dashboard_case_detail(
         if isinstance(draft, dict):
             copilot_draft = draft
 
+    current_assignee = (
+        case.assigned_to.strip().lower()
+        if isinstance(case.assigned_to, str)
+        and case.assigned_to.strip()
+        else None
+    )
+
+    can_reassign_cases = has_permission(
+        account.role,
+        Permission.REASSIGN_CASES,
+    )
+
+    can_assign_self = (
+        has_permission(
+            account.role,
+            Permission.ASSIGN_SELF,
+        )
+        and not can_reassign_cases
+        and current_assignee is None
+    )
+
+    can_resolve_cases = has_permission(
+        account.role,
+        Permission.RESOLVE_CASES,
+    )
+
+    can_update_status = has_permission(
+        account.role,
+        Permission.UPDATE_CASE_STATUS,
+    )
+
+    can_add_notes = has_permission(
+        account.role,
+        Permission.ADD_NOTES,
+    )
+
+    available_case_statuses = sorted(
+        status_name
+        for status_name in ALLOWED_CASE_STATUSES
+        if (
+            can_resolve_cases
+            or status_name
+            not in TERMINAL_CASE_STATUSES
+        )
+    )
+
     return templates.TemplateResponse(
         request=request,
         name="dashboard/case_detail.html",
         context={
             "case": case,
+            "current_account": account,
             "packet": packet,
             "mitre_techniques": mitre_techniques,
             "copilot_draft": copilot_draft,
@@ -436,9 +485,12 @@ def dashboard_case_detail(
             "csrf_token": _csrf_token(
                 request
             ),
-            "case_statuses": sorted(
-                ALLOWED_CASE_STATUSES
-            ),
+            "case_statuses": available_case_statuses,
+            "can_assign_self": can_assign_self,
+            "can_reassign_cases": can_reassign_cases,
+            "can_resolve_cases": can_resolve_cases,
+            "can_update_status": can_update_status,
+            "can_add_notes": can_add_notes,
             "updated": (
                 request.query_params.get(
                     "updated"

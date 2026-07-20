@@ -486,3 +486,65 @@ dd {
         grid-template-columns: 1fr;
     }
 }
+
+.workflow-panel {
+    position: relative;
+}
+
+.role-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--surface-raised);
+    color: var(--muted);
+    font-size: 0.76rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.permission-summary {
+    margin-top: 18px;
+    padding: 12px 14px;
+    border-left: 3px solid var(--accent);
+    border-radius: 6px;
+    background: var(--surface-raised);
+    color: var(--muted);
+}
+
+.permission-summary p {
+    margin: 0;
+}
+
+.self-assign-form {
+    margin-top: 18px;
+}
+
+.readonly-control {
+    min-height: 44px;
+    padding: 11px 13px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.025);
+    color: var(--muted);
+}
+
+.workflow-actions {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.permission-hint {
+    color: var(--muted);
+    line-height: 1.5;
+}
+
+@media (max-width: 640px) {
+    .workflow-actions {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}

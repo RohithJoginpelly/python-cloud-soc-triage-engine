@@ -41,13 +41,81 @@
 </div>
 {% endif %}
 
-<section class="panel">
+<section class="panel workflow-panel">
     <div class="panel-header">
         <div>
-            <p class="eyebrow">Analyst workflow</p>
+            <p class="eyebrow">
+                Analyst workflow
+            </p>
+
             <h2>Update case</h2>
         </div>
+
+        <span class="role-badge">
+            {{ current_account.role.replace("_", " ").title() }}
+        </span>
     </div>
+
+    <div class="permission-summary">
+        {% if can_reassign_cases %}
+        <p>
+            You may update, reassign, resolve,
+            or close this case.
+        </p>
+        {% elif can_assign_self %}
+        <p>
+            You may assign this case to yourself,
+            update the investigation, and add notes.
+        </p>
+        {% else %}
+        <p>
+            You may update active investigation
+            statuses and add notes. Reassignment and
+            terminal status changes require a senior
+            analyst.
+        </p>
+        {% endif %}
+    </div>
+
+    {% if can_assign_self %}
+    <form
+        id="self_assign_form"
+        method="post"
+        action="/dashboard/cases/{{ case.case_id }}/update"
+        class="self-assign-form"
+    >
+        <input
+            type="hidden"
+            name="csrf_token"
+            value="{{ csrf_token }}"
+        >
+
+        <input
+            type="hidden"
+            name="case_status"
+            value="{{ case.status }}"
+        >
+
+        <input
+            type="hidden"
+            name="assigned_to"
+            value="{{ current_account.email }}"
+        >
+
+        <input
+            type="hidden"
+            name="note"
+            value=""
+        >
+
+        <button
+            class="button button-secondary"
+            type="submit"
+        >
+            Assign this case to me
+        </button>
+    </form>
+    {% endif %}
 
     <form
         method="post"
@@ -65,6 +133,7 @@
                 Status
             </label>
 
+            {% if can_update_status %}
             <select
                 id="case_status"
                 name="case_status"
@@ -72,6 +141,7 @@
             >
                 {% for status_name in case_statuses %}
                 <option
+                    id="status_option_{{ status_name }}"
                     value="{{ status_name }}"
                     {% if case.status == status_name %}
                     selected
@@ -81,20 +151,50 @@
                 </option>
                 {% endfor %}
             </select>
+            {% else %}
+            <input
+                type="hidden"
+                name="case_status"
+                value="{{ case.status }}"
+            >
+
+            <div class="readonly-control">
+                {{ case.status.replace("_", " ").title() }}
+            </div>
+            {% endif %}
         </div>
 
         <div>
-            <label for="assigned_to">
+            <label>
                 Assigned analyst
             </label>
 
+            {% if can_reassign_cases %}
             <input
-                id="assigned_to"
+                id="assignee_control"
                 name="assigned_to"
-                type="text"
+                type="email"
                 value="{{ case.assigned_to or '' }}"
                 placeholder="analyst@example.com"
             >
+            {% else %}
+            <input
+                type="hidden"
+                name="assigned_to"
+                value="{{ case.assigned_to or '' }}"
+            >
+
+            <div
+                id="readonly_assignee"
+                class="readonly-control"
+            >
+                {% if case.assigned_to %}
+                    {{ case.assigned_to }}
+                {% else %}
+                    Unassigned
+                {% endif %}
+            </div>
+            {% endif %}
         </div>
 
         <div class="full-width">
@@ -102,22 +202,41 @@
                 Investigation note
             </label>
 
+            {% if can_add_notes %}
             <textarea
                 id="note"
                 name="note"
                 rows="4"
                 maxlength="4000"
-                placeholder="Document the investigation activity..."
+                placeholder="Document investigation activity..."
             ></textarea>
+            {% else %}
+            <input
+                type="hidden"
+                name="note"
+                value=""
+            >
+
+            <div class="readonly-control">
+                Your role cannot add notes.
+            </div>
+            {% endif %}
         </div>
 
-        <div class="full-width">
+        <div class="full-width workflow-actions">
             <button
                 class="button button-primary"
                 type="submit"
             >
                 Save case update
             </button>
+
+            {% if not can_resolve_cases %}
+            <small class="permission-hint">
+                Resolving or closing a case requires
+                a senior analyst or administrator.
+            </small>
+            {% endif %}
         </div>
     </form>
 </section>
