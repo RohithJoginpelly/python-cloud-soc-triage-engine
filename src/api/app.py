@@ -29,6 +29,7 @@ from src.api.dependencies import (
 from src.api.client_address import TrustedProxyResolver
 from src.api.rate_limit import SlidingWindowRateLimiter
 from src.api.request_limits import RequestBodyLimitMiddleware
+from src.api.error_handling import configure_safe_error_handling
 from src.api.security import configure_api_key_auth
 from src.api.schemas import (
     AuditEventResponse,
@@ -249,6 +250,7 @@ def create_app(
         )
 
     app = FastAPI(
+        debug=False,
         title="AI SOC Copilot API",
         description=(
             "Evidence-grounded multi-source security "
@@ -257,6 +259,8 @@ def create_app(
         ),
         version=API_VERSION,
     )
+
+    configure_safe_error_handling(app)
 
     app.state.database_path = resolved_database
     app.state.input_root = resolved_input_root
@@ -288,6 +292,8 @@ def create_app(
     app.state.max_request_body_bytes = (
         max_request_body_bytes
     )
+
+    app.state.hsts_enabled = hsts_enabled
 
     app.state.login_rate_limit = (
         login_rate_limit
