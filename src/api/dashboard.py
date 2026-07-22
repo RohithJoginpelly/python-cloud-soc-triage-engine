@@ -237,24 +237,69 @@ def dashboard_login(
     ):
         return _csrf_failure()
 
-    account = (
+    identity_store = (
         request.app.state.identity_store
-        .authenticate(
-            email=email,
+    )
+
+    login_security = (
+        request.app.state.login_security_store
+    )
+
+    normalized_email = email.strip().lower()
+
+    if login_security.is_locked(
+        normalized_email
+    ):
+        login_security.record_blocked_attempt(
+            normalized_email,
+            identity_store=identity_store,
+        )
+
+        login_error = (
+            "Too many failed attempts. "
+            "Try again later."
+        )
+
+        account = None
+    else:
+        account = identity_store.authenticate(
+            email=normalized_email,
             password=password,
         )
-    )
+
+        if account is None:
+            security_state = (
+                login_security.record_failure(
+                    normalized_email,
+                    identity_store=identity_store,
+                )
+            )
+
+            if security_state.is_locked:
+                login_error = (
+                    "Too many failed attempts. "
+                    "Try again later."
+                )
+            else:
+                login_error = (
+                    "Invalid email or password."
+                )
 
     if account is None:
         return templates.TemplateResponse(
             request=request,
             name="dashboard/login.html",
             context={
-                "error": "Invalid email or password.",
+                "error": login_error,
                 "csrf_token": _csrf_token(request),
             },
             status_code=status.HTTP_401_UNAUTHORIZED,
         )
+
+    login_security.record_success(
+        account.email,
+        identity_store=identity_store,
+    )
 
     request.session.clear()
     request.session["authenticated"] = True

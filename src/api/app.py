@@ -16,6 +16,7 @@ from fastapi import (
     status,
 )
 
+from src.identity.login_security import LoginSecurityStore
 from src.identity.store import IdentityStore
 from src.api.dashboard import router as dashboard_router
 from src.api.dependencies import (
@@ -180,6 +181,10 @@ def create_app(
 
     app.state.identity_store = IdentityStore(
         app.state.case_store.database_path
+    )
+
+    app.state.login_security_store = LoginSecurityStore(
+        app.state.identity_store.database_path
     )
     app.state.api_key = resolved_api_key
 
