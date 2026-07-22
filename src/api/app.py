@@ -28,6 +28,7 @@ from src.api.dependencies import (
 )
 from src.api.client_address import TrustedProxyResolver
 from src.api.rate_limit import SlidingWindowRateLimiter
+from src.api.request_limits import RequestBodyLimitMiddleware
 from src.api.security import configure_api_key_auth
 from src.api.schemas import (
     AuditEventResponse,
@@ -228,6 +229,25 @@ def create_app(
         )
     )
 
+    try:
+        max_request_body_bytes = int(
+            os.getenv(
+                "SOC_MAX_REQUEST_BODY_BYTES",
+                "2097152",
+            )
+        )
+    except ValueError as error:
+        raise ValueError(
+            "SOC_MAX_REQUEST_BODY_BYTES "
+            "must be an integer."
+        ) from error
+
+    if max_request_body_bytes < 1:
+        raise ValueError(
+            "SOC_MAX_REQUEST_BODY_BYTES "
+            "must be positive."
+        )
+
     app = FastAPI(
         title="AI SOC Copilot API",
         description=(
@@ -265,6 +285,10 @@ def create_app(
         trusted_proxy_resolver
     )
 
+    app.state.max_request_body_bytes = (
+        max_request_body_bytes
+    )
+
     app.state.login_rate_limit = (
         login_rate_limit
     )
@@ -287,6 +311,11 @@ def create_app(
         same_site="lax",
         https_only=https_only,
         max_age=28800,
+    )
+
+    app.add_middleware(
+        RequestBodyLimitMiddleware,
+        max_body_bytes=max_request_body_bytes,
     )
 
     app.add_middleware(
