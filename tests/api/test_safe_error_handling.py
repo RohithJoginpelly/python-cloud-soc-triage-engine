@@ -221,17 +221,29 @@ def test_error_is_logged_with_reference(
     matching_records = [
         record
         for record in caplog.records
-        if reference in record.getMessage()
+        if getattr(
+            record,
+            "error_reference",
+            None,
+        )
+        == reference
     ]
 
     assert len(matching_records) == 1
 
     record = matching_records[0]
 
-    assert "GET" in record.getMessage()
-    assert "/unexpected-api-error" in (
-        record.getMessage()
+    assert record.event_type == (
+        "unhandled_application_error"
     )
+    assert record.request_id == (
+        response.headers["x-request-id"]
+    )
+    assert record.method == "GET"
+    assert record.path == (
+        "/unexpected-api-error"
+    )
+    assert record.status_code == 500
 
 
 def test_normal_http_errors_are_not_converted(

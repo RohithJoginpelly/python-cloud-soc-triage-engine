@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import logging
+
 from hmac import compare_digest
 
 from fastapi import FastAPI, Request
 from starlette.responses import JSONResponse
 from src.api.client_address import resolve_request_client_address
+from src.api.security_events import emit_security_event
 
 
 PUBLIC_PATHS = {
@@ -87,6 +90,22 @@ def configure_api_key_auth(app: FastAPI) -> None:
             not isinstance(configured_key, str)
             or not configured_key
         ):
+            emit_security_event(
+                "api_authentication_unavailable",
+                request=request,
+                level=logging.ERROR,
+                message=(
+                    "SOC API authentication "
+                    "is not configured"
+                ),
+                client_address=(
+                    _client_address(request)
+                ),
+                status_code=503,
+                outcome="unavailable",
+                reason="api_key_not_configured",
+            )
+
             return JSONResponse(
                 status_code=503,
                 content={
@@ -108,6 +127,22 @@ def configure_api_key_auth(app: FastAPI) -> None:
                 configured_key.encode("utf-8"),
             )
         ):
+            emit_security_event(
+                "api_authentication_failed",
+                request=request,
+                level=logging.WARNING,
+                message=(
+                    "Protected API authentication "
+                    "failed"
+                ),
+                client_address=(
+                    _client_address(request)
+                ),
+                status_code=401,
+                outcome="denied",
+                reason="invalid_or_missing_api_key",
+            )
+
             return JSONResponse(
                 status_code=401,
                 content={
@@ -129,10 +164,14 @@ def configure_api_key_auth(app: FastAPI) -> None:
         if limiter is None:
             return await call_next(request)
 
+        client_address = (
+            _client_address(request)
+        )
+
         decision = limiter.check(
             (
                 "api:"
-                + _client_address(request)
+                + client_address
             ),
             limit=request.app.state.api_rate_limit,
             window_seconds=(
@@ -148,6 +187,27 @@ def configure_api_key_auth(app: FastAPI) -> None:
         if not decision.allowed:
             rate_headers["Retry-After"] = str(
                 decision.retry_after_seconds
+            )
+
+            emit_security_event(
+                "api_rate_limited",
+                request=request,
+                level=logging.WARNING,
+                message=(
+                    "Protected API request "
+                    "rate limited"
+                ),
+                client_address=client_address,
+                status_code=429,
+                outcome="blocked",
+                reason="request_rate_limit",
+                retry_after_seconds=(
+                    decision.retry_after_seconds
+                ),
+                rate_limit=decision.limit,
+                rate_limit_remaining=(
+                    decision.remaining
+                ),
             )
 
             return JSONResponse(

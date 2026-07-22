@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import secrets
 from collections import Counter
 from datetime import datetime, timezone
@@ -23,6 +24,7 @@ from fastapi.responses import (
 from fastapi.templating import Jinja2Templates
 
 from src.api.client_address import resolve_request_client_address
+from src.api.security_events import emit_security_event
 from src.cases.models import ALLOWED_CASE_STATUSES
 from src.identity.models import ALLOWED_ANALYST_ROLES
 from src.identity.permissions import (
@@ -308,10 +310,14 @@ def dashboard_login(
 
     limiter = request.app.state.rate_limiter
 
+    client_address = (
+        _login_client_address(request)
+    )
+
     decision = limiter.check(
         (
             "login:"
-            + _login_client_address(request)
+            + client_address
         ),
         limit=(
             request.app.state.login_rate_limit
@@ -331,6 +337,27 @@ def dashboard_login(
             "Retry-After"
         ] = str(
             decision.retry_after_seconds
+        )
+
+        emit_security_event(
+            "login_rate_limited",
+            request=request,
+            level=logging.WARNING,
+            message=(
+                "Dashboard login request "
+                "rate limited"
+            ),
+            client_address=client_address,
+            status_code=429,
+            outcome="blocked",
+            reason="request_rate_limit",
+            retry_after_seconds=(
+                decision.retry_after_seconds
+            ),
+            rate_limit=decision.limit,
+            rate_limit_remaining=(
+                decision.remaining
+            ),
         )
 
         return templates.TemplateResponse(
@@ -381,6 +408,20 @@ def dashboard_login(
             identity_store=identity_store,
         )
 
+        emit_security_event(
+            "login_blocked",
+            request=request,
+            level=logging.WARNING,
+            message=(
+                "Login blocked for locked account"
+            ),
+            client_address=client_address,
+            account_email=normalized_email,
+            status_code=401,
+            outcome="blocked",
+            reason="account_locked",
+        )
+
         login_error = (
             "Too many failed attempts. "
             "Try again later."
@@ -401,7 +442,44 @@ def dashboard_login(
                 )
             )
 
+            emit_security_event(
+                "login_failed",
+                request=request,
+                level=logging.WARNING,
+                message="Analyst login failed",
+                client_address=client_address,
+                account_email=normalized_email,
+                status_code=401,
+                outcome="denied",
+                reason="invalid_credentials",
+                failed_attempts=(
+                    security_state.failed_attempts
+                ),
+                account_locked=(
+                    security_state.is_locked
+                ),
+            )
+
             if security_state.is_locked:
+                emit_security_event(
+                    "account_locked",
+                    request=request,
+                    level=logging.WARNING,
+                    message=(
+                        "Analyst account temporarily "
+                        "locked"
+                    ),
+                    client_address=client_address,
+                    account_email=normalized_email,
+                    status_code=401,
+                    outcome="locked",
+                    reason=(
+                        "failed_login_threshold"
+                    ),
+                    failed_attempts=(
+                        security_state.failed_attempts
+                    ),
+                )
                 login_error = (
                     "Too many failed attempts. "
                     "Try again later."
@@ -426,6 +504,19 @@ def dashboard_login(
     login_security.record_success(
         account.email,
         identity_store=identity_store,
+    )
+
+    emit_security_event(
+        "login_succeeded",
+        request=request,
+        level=logging.INFO,
+        message="Analyst login succeeded",
+        client_address=client_address,
+        account_email=account.email,
+        account_user_id=account.user_id,
+        account_role=account.role,
+        status_code=303,
+        outcome="success",
     )
 
     previous_session_id = (

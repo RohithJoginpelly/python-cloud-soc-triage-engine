@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import logging
+
+from starlette.requests import Request
 from starlette.responses import JSONResponse
+from src.api.security_events import emit_security_event
 from starlette.types import (
     ASGIApp,
     Message,
@@ -82,8 +86,29 @@ class RequestBodyLimitMiddleware:
         scope: Scope,
         receive: Receive,
         send: Send,
+        *,
+        reason: str,
+        observed_body_bytes: int | None = None,
     ) -> None:
         """Return a consistent 413 response."""
+
+        request = Request(scope)
+
+        emit_security_event(
+            "request_body_rejected",
+            request=request,
+            level=logging.WARNING,
+            message=(
+                "Oversized request body rejected"
+            ),
+            status_code=413,
+            outcome="blocked",
+            reason=reason,
+            max_body_bytes=self.max_body_bytes,
+            observed_body_bytes=(
+                observed_body_bytes
+            ),
+        )
 
         response = JSONResponse(
             status_code=413,
@@ -145,6 +170,12 @@ class RequestBodyLimitMiddleware:
                 scope,
                 receive,
                 send,
+                reason=(
+                    "declared_content_length_exceeded"
+                ),
+                observed_body_bytes=(
+                    declared_length
+                ),
             )
             return
 
@@ -184,4 +215,10 @@ class RequestBodyLimitMiddleware:
                 scope,
                 receive,
                 send,
+                reason=(
+                    "streamed_body_limit_exceeded"
+                ),
+                observed_body_bytes=(
+                    received_bytes
+                ),
             )

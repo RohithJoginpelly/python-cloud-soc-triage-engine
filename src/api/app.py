@@ -30,6 +30,8 @@ from src.api.client_address import TrustedProxyResolver
 from src.api.rate_limit import SlidingWindowRateLimiter
 from src.api.request_limits import RequestBodyLimitMiddleware
 from src.api.error_handling import configure_safe_error_handling
+from src.api.observability import RequestObservabilityMiddleware
+from src.api.logging_config import configure_application_logging
 from src.api.security import configure_api_key_auth
 from src.api.schemas import (
     AuditEventResponse,
@@ -249,6 +251,10 @@ def create_app(
             "must be positive."
         )
 
+    logging_configuration = (
+        configure_application_logging()
+    )
+
     app = FastAPI(
         debug=False,
         title="AI SOC Copilot API",
@@ -261,6 +267,14 @@ def create_app(
     )
 
     configure_safe_error_handling(app)
+
+    app.state.log_format = (
+        logging_configuration.log_format
+    )
+
+    app.state.log_level = (
+        logging_configuration.level_name
+    )
 
     app.state.database_path = resolved_database
     app.state.input_root = resolved_input_root
@@ -330,6 +344,12 @@ def create_app(
     )
 
     configure_api_key_auth(app)
+
+    # Added after API-key middleware so request
+    # observability wraps every HTTP response.
+    app.add_middleware(
+        RequestObservabilityMiddleware
+    )
 
     static_directory = (
         Path(__file__).resolve().parent
