@@ -16,6 +16,7 @@ from fastapi import (
     status,
 )
 
+from src.identity.session_security import SessionSecurityStore
 from src.identity.login_security import LoginSecurityStore
 from src.identity.store import IdentityStore
 from src.api.dashboard import router as dashboard_router
@@ -181,6 +182,10 @@ def create_app(
 
     app.state.identity_store = IdentityStore(
         app.state.case_store.database_path
+    )
+
+    app.state.session_security_store = SessionSecurityStore(
+        app.state.identity_store.database_path
     )
 
     app.state.login_security_store = LoginSecurityStore(

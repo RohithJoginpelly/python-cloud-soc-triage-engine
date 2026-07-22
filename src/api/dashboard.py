@@ -87,24 +87,46 @@ templates.env.filters[
 
 
 def _current_account(request: Request):
-    """Return the active analyst stored in the session."""
+    """Return the analyst for a valid server session."""
 
-    user_id = request.session.get("user_id")
+    session_id = request.session.get(
+        "session_id"
+    )
 
-    if not isinstance(user_id, str) or not user_id:
+    if (
+        not isinstance(session_id, str)
+        or not session_id.strip()
+    ):
+        return None
+
+    analyst_session = (
+        request.app.state
+        .session_security_store
+        .validate_and_touch(session_id)
+    )
+
+    if analyst_session is None:
+        request.session.clear()
         return None
 
     account = (
         request.app.state.identity_store
-        .get_by_id(user_id)
+        .get_by_id(
+            analyst_session.user_id
+        )
     )
 
     if account is None or not account.is_active:
+        (
+            request.app.state
+            .session_security_store
+            .revoke_session(session_id)
+        )
+
         request.session.clear()
         return None
 
     return account
-
 
 def _authenticated(
     request: Request,
@@ -301,9 +323,33 @@ def dashboard_login(
         identity_store=identity_store,
     )
 
+    previous_session_id = (
+        request.session.get("session_id")
+    )
+
+    if isinstance(previous_session_id, str):
+        (
+            request.app.state
+            .session_security_store
+            .revoke_session(
+                previous_session_id
+            )
+        )
+
     request.session.clear()
+
+    analyst_session = (
+        request.app.state
+        .session_security_store
+        .create_session(account.user_id)
+    )
+
     request.session["authenticated"] = True
-    request.session["user_id"] = account.user_id
+
+    request.session["session_id"] = (
+        analyst_session.session_id
+    )
+
     request.session["csrf_token"] = (
         secrets.token_urlsafe(32)
     )
@@ -329,6 +375,17 @@ def dashboard_logout(
         csrf_token,
     ):
         return _csrf_failure()
+
+    session_id = request.session.get(
+        "session_id"
+    )
+
+    if isinstance(session_id, str):
+        (
+            request.app.state
+            .session_security_store
+            .revoke_session(session_id)
+        )
 
     request.session.clear()
 
@@ -1158,6 +1215,12 @@ def dashboard_admin_set_active(
         is_active=desired_active,
     )
 
+    # Phase 23B: revoke sessions when an account is disabled.
+    if not desired_active:
+        request.app.state.session_security_store.revoke_user_sessions(
+            target.user_id
+        )
+
     notice = (
         "reactivated"
         if desired_active
@@ -1263,6 +1326,11 @@ def dashboard_change_password(
             account.user_id,
             current_password=current_password,
             new_password=new_password,
+        )
+
+        # Phase 23B: revoke sessions after self-service password change.
+        request.app.state.session_security_store.revoke_user_sessions(
+            account.user_id
         )
     except ValueError as error:
         return templates.TemplateResponse(
@@ -1372,6 +1440,11 @@ def dashboard_admin_reset_password(
             new_password=new_password,
             actor_user_id=account.user_id,
             actor_email=account.email,
+        )
+
+        # Phase 23B: revoke sessions after administrator password reset.
+        request.app.state.session_security_store.revoke_user_sessions(
+            target.user_id
         )
     except ValueError as error:
         return HTMLResponse(
