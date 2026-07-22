@@ -8,6 +8,7 @@ from pathlib import Path
 
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
+from src.api.security_headers import SecurityHeadersMiddleware
 
 from fastapi import (
     FastAPI,
@@ -164,6 +165,14 @@ def create_app(
         in {"1", "true", "yes", "on"}
     )
 
+    hsts_enabled = (
+        os.getenv(
+            "SOC_ENABLE_HSTS",
+            "false",
+        ).strip().lower()
+        in {"1", "true", "yes", "on"}
+    )
+
     app = FastAPI(
         title="AI SOC Copilot API",
         description=(
@@ -199,6 +208,11 @@ def create_app(
         same_site="lax",
         https_only=https_only,
         max_age=28800,
+    )
+
+    app.add_middleware(
+        SecurityHeadersMiddleware,
+        enable_hsts=hsts_enabled,
     )
 
     configure_api_key_auth(app)

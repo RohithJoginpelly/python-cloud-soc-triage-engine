@@ -20,6 +20,11 @@
             Password changed successfully.
             Sign in with your new password.
         </div>
+        {% elif request.query_params.get("notice") == "session-expired" %}
+        <div class="alert alert-error">
+            Your session expired after a period
+            of inactivity. Sign in again.
+        </div>
         {% endif %}
 
         {% if error %}

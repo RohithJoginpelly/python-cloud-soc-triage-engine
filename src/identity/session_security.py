@@ -336,38 +336,48 @@ class SessionSecurityStore:
 
         return self._row_to_session(row)
 
-    def validate_and_touch(
+    def validate_and_touch_with_reason(
         self,
         session_id: str,
         *,
         now: datetime | None = None,
-    ) -> AnalystSession | None:
-        """Validate a session and refresh activity time."""
+    ) -> tuple[
+        AnalystSession | None,
+        str | None,
+    ]:
+        """Validate a session and return failure reason."""
 
         session = self.get_session(
             session_id
         )
 
         if session is None:
-            return None
+            return None, "missing"
 
         if session.is_revoked:
-            return None
+            return None, "revoked"
 
         current_time = _normalize_now(now)
 
-        if (
-            session.idle_expired(now=current_time)
-            or session.absolute_expired(
-                now=current_time
-            )
+        if session.idle_expired(
+            now=current_time
         ):
             self.revoke_session(
                 session.session_id,
                 now=current_time,
             )
 
-            return None
+            return None, "idle_expired"
+
+        if session.absolute_expired(
+            now=current_time
+        ):
+            self.revoke_session(
+                session.session_id,
+                now=current_time,
+            )
+
+            return None, "absolute_expired"
 
         last_seen_at = current_time.isoformat()
 
@@ -386,9 +396,29 @@ class SessionSecurityStore:
                 ),
             )
 
-        return self.get_session(
-            session.session_id
+        return (
+            self.get_session(
+                session.session_id
+            ),
+            None,
         )
+
+    def validate_and_touch(
+        self,
+        session_id: str,
+        *,
+        now: datetime | None = None,
+    ) -> AnalystSession | None:
+        """Validate a session and refresh activity."""
+
+        session, _ = (
+            self.validate_and_touch_with_reason(
+                session_id,
+                now=now,
+            )
+        )
+
+        return session
 
     def revoke_session(
         self,

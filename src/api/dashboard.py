@@ -99,14 +99,25 @@ def _current_account(request: Request):
     ):
         return None
 
-    analyst_session = (
+    analyst_session, failure_reason = (
         request.app.state
         .session_security_store
-        .validate_and_touch(session_id)
+        .validate_and_touch_with_reason(
+            session_id
+        )
     )
 
     if analyst_session is None:
         request.session.clear()
+
+        if failure_reason in {
+            "idle_expired",
+            "absolute_expired",
+        }:
+            request.state.login_notice = (
+                "session-expired"
+            )
+
         return None
 
     account = (
@@ -176,14 +187,28 @@ def _valid_csrf_token(
     )
 
 
-def _login_redirect() -> RedirectResponse:
+def _login_redirect(
+    request: Request | None = None,
+) -> RedirectResponse:
     """Redirect an unauthenticated browser to login."""
 
+    login_url = "/dashboard/login"
+
+    if (
+        request is not None
+        and getattr(
+            request.state,
+            "login_notice",
+            None,
+        )
+        == "session-expired"
+    ):
+        login_url += "?notice=session-expired"
+
     return RedirectResponse(
-        url="/dashboard/login",
+        url=login_url,
         status_code=status.HTTP_303_SEE_OTHER,
     )
-
 
 def _csrf_failure() -> HTMLResponse:
     """Return a CSRF validation failure."""
@@ -408,7 +433,7 @@ def dashboard_home(
     account = _current_account(request)
 
     if account is None:
-        return _login_redirect()
+        return _login_redirect(request)
 
     store = request.app.state.case_store
 
@@ -492,7 +517,7 @@ def dashboard_case_detail(
     account = _current_account(request)
 
     if account is None:
-        return _login_redirect()
+        return _login_redirect(request)
 
     store = request.app.state.case_store
 
@@ -655,7 +680,7 @@ def dashboard_case_update(
     account = _current_account(request)
 
     if account is None:
-        return _login_redirect()
+        return _login_redirect(request)
 
     if not _valid_csrf_token(
         request,
@@ -864,7 +889,7 @@ def dashboard_admin_analysts(
     account = _admin_account(request)
 
     if account is None:
-        return _login_redirect()
+        return _login_redirect(request)
 
     if account is False:
         return _permission_denied(
@@ -958,7 +983,7 @@ def dashboard_admin_create_analyst(
     account = _admin_account(request)
 
     if account is None:
-        return _login_redirect()
+        return _login_redirect(request)
 
     if account is False:
         return _permission_denied(
@@ -1042,7 +1067,7 @@ def dashboard_admin_update_role(
     account = _admin_account(request)
 
     if account is None:
-        return _login_redirect()
+        return _login_redirect(request)
 
     if account is False:
         return _permission_denied(
@@ -1140,7 +1165,7 @@ def dashboard_admin_set_active(
     account = _admin_account(request)
 
     if account is None:
-        return _login_redirect()
+        return _login_redirect(request)
 
     if account is False:
         return _permission_denied(
@@ -1248,7 +1273,7 @@ def dashboard_account_password(
     account = _current_account(request)
 
     if account is None:
-        return _login_redirect()
+        return _login_redirect(request)
 
     return templates.TemplateResponse(
         request=request,
@@ -1289,7 +1314,7 @@ def dashboard_change_password(
     account = _current_account(request)
 
     if account is None:
-        return _login_redirect()
+        return _login_redirect(request)
 
     if not _valid_csrf_token(
         request,
@@ -1348,7 +1373,7 @@ def dashboard_change_password(
     except KeyError:
         request.session.clear()
 
-        return _login_redirect()
+        return _login_redirect(request)
 
     request.session.clear()
 
@@ -1386,7 +1411,7 @@ def dashboard_admin_reset_password(
     account = _admin_account(request)
 
     if account is None:
-        return _login_redirect()
+        return _login_redirect(request)
 
     if account is False:
         return _permission_denied(
@@ -1478,7 +1503,7 @@ def dashboard_identity_audit(
     account = _admin_account(request)
 
     if account is None:
-        return _login_redirect()
+        return _login_redirect(request)
 
     if account is False:
         return _permission_denied(
@@ -1534,7 +1559,7 @@ def dashboard_admin_unlock_analyst(
     account = _admin_account(request)
 
     if account is None:
-        return _login_redirect()
+        return _login_redirect(request)
 
     if account is False:
         return _permission_denied(
