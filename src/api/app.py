@@ -32,6 +32,12 @@ from src.api.request_limits import RequestBodyLimitMiddleware
 from src.api.error_handling import configure_safe_error_handling
 from src.api.observability import RequestObservabilityMiddleware
 from src.api.logging_config import configure_application_logging
+from src.api.configuration_api import router as configuration_router
+from src.api.configuration import (
+    log_configuration_report,
+    require_valid_configuration,
+    validate_runtime_configuration,
+)
 from src.api.metrics import (
     OperationalMetrics,
     router as metrics_router,
@@ -164,9 +170,31 @@ def create_app(
         else None
     )
 
+    environment_session_secret = os.getenv(
+        "SOC_SESSION_SECRET"
+    )
+
+    explicit_session_secret = (
+        session_secret.strip()
+        if isinstance(session_secret, str)
+        and session_secret.strip()
+        else (
+            environment_session_secret.strip()
+            if isinstance(
+                environment_session_secret,
+                str,
+            )
+            and environment_session_secret.strip()
+            else None
+        )
+    )
+
+    session_secret_is_explicit = (
+        explicit_session_secret is not None
+    )
+
     configured_session_secret = (
-        session_secret
-        or os.getenv("SOC_SESSION_SECRET")
+        explicit_session_secret
         or resolved_api_key
         or secrets.token_urlsafe(48)
     )
@@ -263,6 +291,39 @@ def create_app(
         configure_application_logging()
     )
 
+    configuration_report = (
+        validate_runtime_configuration(
+            deployment_mode=os.getenv(
+                "SOC_DEPLOYMENT_MODE",
+                "development",
+            ),
+            api_key=resolved_api_key,
+            session_secret=(
+                explicit_session_secret
+            ),
+            session_secret_is_explicit=(
+                session_secret_is_explicit
+            ),
+            session_https_only=https_only,
+            hsts_enabled=hsts_enabled,
+            log_format=(
+                logging_configuration.log_format
+            ),
+        )
+    )
+
+    log_configuration_report(
+        configuration_report
+    )
+
+    if (
+        configuration_report.deployment_mode
+        == "production"
+    ):
+        require_valid_configuration(
+            configuration_report
+        )
+
     app = FastAPI(
         debug=False,
         title="AI SOC Copilot API",
@@ -275,6 +336,14 @@ def create_app(
     )
 
     configure_safe_error_handling(app)
+
+    app.state.deployment_mode = (
+        configuration_report.deployment_mode
+    )
+
+    app.state.configuration_report = (
+        configuration_report
+    )
 
     app.state.log_format = (
         logging_configuration.log_format
@@ -376,6 +445,10 @@ def create_app(
 
     app.include_router(
         metrics_router
+    )
+
+    app.include_router(
+        configuration_router
     )
 
     static_directory = (

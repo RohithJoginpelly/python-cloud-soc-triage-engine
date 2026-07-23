@@ -30,6 +30,7 @@ MANAGED_LOGGERS = (
     "soc.http",
     "soc.security",
     "soc.health",
+    "soc.configuration",
     "src.api.error_handling",
 )
 
