@@ -15,6 +15,8 @@ from src.api.security_events import emit_security_event
 PUBLIC_PATHS = {
     "/",
     "/health",
+    "/health/live",
+    "/health/ready",
     "/docs",
     "/docs/oauth2-redirect",
     "/redoc",

@@ -32,6 +32,14 @@ from src.api.request_limits import RequestBodyLimitMiddleware
 from src.api.error_handling import configure_safe_error_handling
 from src.api.observability import RequestObservabilityMiddleware
 from src.api.logging_config import configure_application_logging
+from src.api.metrics import (
+    OperationalMetrics,
+    router as metrics_router,
+)
+from src.api.health import (
+    ReadinessChecker,
+    router as health_router,
+)
 from src.api.security import configure_api_key_auth
 from src.api.schemas import (
     AuditEventResponse,
@@ -293,10 +301,21 @@ def create_app(
     app.state.login_security_store = LoginSecurityStore(
         app.state.identity_store.database_path
     )
+
+    app.state.readiness_checker = ReadinessChecker(
+        database_path=(
+            app.state.case_store.database_path
+        ),
+        input_root=resolved_input_root,
+    )
     app.state.api_key = resolved_api_key
 
     app.state.rate_limiter = (
         SlidingWindowRateLimiter()
+    )
+
+    app.state.operational_metrics = (
+        OperationalMetrics()
     )
 
     app.state.trusted_proxy_resolver = (
@@ -349,6 +368,14 @@ def create_app(
     # observability wraps every HTTP response.
     app.add_middleware(
         RequestObservabilityMiddleware
+    )
+
+    app.include_router(
+        health_router
+    )
+
+    app.include_router(
+        metrics_router
     )
 
     static_directory = (

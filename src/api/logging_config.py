@@ -29,6 +29,7 @@ SUPPORTED_LOG_LEVELS = {
 MANAGED_LOGGERS = (
     "soc.http",
     "soc.security",
+    "soc.health",
     "src.api.error_handling",
 )
 

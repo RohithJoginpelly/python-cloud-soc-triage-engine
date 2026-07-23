@@ -128,6 +128,30 @@ def emit_security_event(
             field_name
         ] = field_value
 
+    if request is not None:
+        application_state = getattr(
+            request.app,
+            "state",
+            None,
+        )
+
+        metrics = getattr(
+            application_state,
+            "operational_metrics",
+            None,
+        )
+
+        metrics_recorder = getattr(
+            metrics,
+            "record_security_event",
+            None,
+        )
+
+        if callable(metrics_recorder):
+            metrics_recorder(
+                normalized_event_type
+            )
+
     SECURITY_LOGGER.log(
         level,
         message,

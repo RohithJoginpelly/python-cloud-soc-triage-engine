@@ -210,6 +210,41 @@ class RequestObservabilityMiddleware:
             )
         )
 
+    @staticmethod
+    def _record_http_metrics(
+        *,
+        scope: Scope,
+        status_code: int,
+        duration_ms: float,
+    ) -> None:
+        """Update process-local HTTP counters."""
+
+        application = scope.get("app")
+
+        application_state = getattr(
+            application,
+            "state",
+            None,
+        )
+
+        metrics = getattr(
+            application_state,
+            "operational_metrics",
+            None,
+        )
+
+        recorder = getattr(
+            metrics,
+            "record_http_request",
+            None,
+        )
+
+        if callable(recorder):
+            recorder(
+                status_code=status_code,
+                duration_ms=duration_ms,
+            )
+
     async def __call__(
         self,
         scope: Scope,
@@ -303,6 +338,16 @@ class RequestObservabilityMiddleware:
                 3,
             )
 
+            self._record_http_metrics(
+                scope=scope,
+                status_code=(
+                    response_status
+                    if response_started
+                    else 500
+                ),
+                duration_ms=duration_ms,
+            )
+
             self.logger.error(
                 "HTTP request failed",
                 extra={
@@ -337,6 +382,12 @@ class RequestObservabilityMiddleware:
                 )
                 * 1000,
                 3,
+            )
+
+            self._record_http_metrics(
+                scope=scope,
+                status_code=response_status,
+                duration_ms=duration_ms,
             )
 
             self.logger.info(
