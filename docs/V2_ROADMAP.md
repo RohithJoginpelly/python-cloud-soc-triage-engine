@@ -1,5 +1,7 @@
 # AI-Powered SOC Copilot — Version 2 Roadmap
 
+> **Release status:** Core roadmap completed for `v2.0.0`. Future enterprise scaling and external integrations remain optional enhancements.
+
 ## Objective
 
 Transform the existing Python Cloud SOC Triage Engine into a multi-source,

@@ -1,82 +1,200 @@
-# Demo Walkthrough
+# AI SOC Copilot V2 Demo Walkthrough
 
-This walkthrough explains how to demonstrate the Python Cloud SOC Triage Engine in under two minutes.
+This walkthrough demonstrates the Version 2 multi-source SOC investigation workflow using only local sample telemetry and the deterministic fallback Copilot provider.
 
-## 1. Run the detection engine
+## What the demo proves
 
-Command:
+The demo:
 
-    python src/main.py
+- Ingests one Snort SSH reconnaissance event
+- Ingests four Wazuh SSH compromise events
+- Correlates the five normalized events into one cross-source finding
+- Applies deterministic risk scoring and MITRE ATT&CK mapping
+- Generates evidence-grounded Copilot output without an external API key
+- Saves one persistent SOC case
+- Writes append-only audit events
+- Presents the case in the authenticated analyst dashboard
 
-Expected output:
+## 1. Prepare a disposable demo database
 
-    Processed events: 10
-    Generated rule alerts: 7
-    Generated correlation alerts: 1
-    Generated total alerts: 8
-    Alert queue created: data/alerts/alerts.csv
-    Incident database updated: data/incidents/incidents.db
-    Ingestion status updated: data/ingestion/ingestion_status.json
-    Notifications generated: 7
+Run the demo against `/tmp` so the repository's normal case database is not modified.
 
-## 2. Start the dashboard
+```bash
+rm -f /tmp/ai-soc-v2-demo.db
+```
 
-Command:
+## 2. Run the end-to-end V2 pipeline
 
-    streamlit run dashboard/app.py
+```bash
+python -m src.v2_cli \
+  run-ssh-case \
+  --snort data/test_events/sample_snort_ssh_recon.json \
+  --wazuh data/test_events/sample_wazuh_ssh_compromise.json \
+  --database /tmp/ai-soc-v2-demo.db \
+  --provider fallback
+```
 
-If running inside Kali VM and opening from Windows, use the Kali VM IP:
+Expected result characteristics:
 
-    http://<KALI_VM_IP>:8501
+```json
+{
+  "snort_event_count": 1,
+  "wazuh_event_count": 4,
+  "total_event_count": 5,
+  "finding_count": 1,
+  "saved_case_count": 1,
+  "provider": "fallback"
+}
+```
 
-Example:
+The generated case ID is intentionally not fixed.
 
-    http://192.168.119.128:8501
+## 3. Create a demo administrator account
 
-## 3. Show ingestion status
+```bash
+python -m src.identity.cli \
+  --database /tmp/ai-soc-v2-demo.db \
+  create \
+  --email analyst@example.com \
+  --name "SOC Administrator" \
+  --role admin
+```
 
-At the top of the dashboard, show:
+Enter and confirm a demo password when prompted. The password is read securely and is not shown in the terminal.
 
-- Ingestion mode
-- Source name
-- Input file
-- Events processed
-- Alerts generated
-- Last ingested time
+Confirm the account:
 
-## 4. Show notification status
+```bash
+python -m src.identity.cli \
+  --database /tmp/ai-soc-v2-demo.db \
+  list
+```
 
-Show the notification widget:
+## 4. Configure the local V2 API
 
-- P1 Critical alerts
-- P2 High alerts
-- Local email outbox simulation
+Generate temporary values without printing them:
 
-Real SMTP email is intentionally not enabled by default to avoid storing passwords or API keys.
+```bash
+export SOC_API_KEY="$(
+  python -c 'import secrets; print(secrets.token_urlsafe(48))'
+)"
 
-## 5. Open a high-risk incident
+export SOC_SESSION_SECRET="$(
+  python -c 'import secrets; print(secrets.token_urlsafe(64))'
+)"
+```
 
-Open a Critical or High incident and show:
+Configure the disposable database and local development settings:
 
-- Case summary
-- Entity context
-- Local enrichment
-- MITRE ATT&CK mapping
-- Analyst summary
-- Evidence
-- Recommended analyst action
-- Case update workflow
+```bash
+export SOC_CASE_DATABASE=/tmp/ai-soc-v2-demo.db
+export SOC_INPUT_ROOT=data/test_events
+export SOC_DEPLOYMENT_MODE=development
+export SOC_SESSION_HTTPS_ONLY=false
+export SOC_ENABLE_HSTS=false
+export SOC_LOG_FORMAT=text
+export SOC_LOG_LEVEL=INFO
+```
 
-## 6. Show generated reports
+## 5. Start the API and analyst dashboard
+
+```bash
+python -m uvicorn src.api.main:app \
+  --host 127.0.0.1 \
+  --port 8000
+```
 
 Open:
 
-    reports/generated/
+```text
+http://127.0.0.1:8000/dashboard
+```
 
-Each incident has a markdown report with investigation details and closure guidance.
+Sign in with:
 
-## 7. Explain the value
+```text
+Email: analyst@example.com
+Password: the demo password created in Step 3
+```
 
-This project demonstrates an end-to-end SOC workflow:
+## 6. Present the investigation
 
-Cloud logs -> detection -> enrichment -> correlation -> prioritization -> dashboard triage -> reports -> notifications.
+Open the generated case and demonstrate:
+
+- Cross-source Snort and Wazuh evidence
+- Correlated SSH attack sequence
+- Explainable risk and severity
+- MITRE ATT&CK mapping
+- Evidence-grounded Copilot summary
+- Investigation hypotheses and recommended next steps
+- Draft analyst notes
+- Case ownership and status workflow
+- Append-only case and identity audit history
+- Role-aware administrative controls
+
+The fallback Copilot provider is deterministic and requires no external model credentials.
+
+## 7. Show operational controls
+
+In another terminal, verify the public health endpoints:
+
+```bash
+curl -i http://127.0.0.1:8000/health/live
+curl -i http://127.0.0.1:8000/health/ready
+```
+
+The responses should include security headers and an `X-Request-ID`.
+
+The protected operational endpoints are:
+
+```text
+GET /metrics
+GET /configuration
+```
+
+They require the `X-SOC-API-Key` header.
+
+## 8. Explain the architecture
+
+Use this summary during the presentation:
+
+```text
+Snort and Wazuh telemetry
+        |
+        v
+Input validation and normalization
+        |
+        v
+Cross-source correlation
+        |
+        v
+Risk scoring and MITRE ATT&CK mapping
+        |
+        v
+Evidence-grounded Copilot assistance
+        |
+        v
+Persistent SOC case and audit trail
+        |
+        v
+Authenticated analyst investigation
+```
+
+## 9. Clean up
+
+Stop Uvicorn with `Ctrl+C`, then remove temporary state:
+
+```bash
+rm -f /tmp/ai-soc-v2-demo.db
+unset SOC_API_KEY
+unset SOC_SESSION_SECRET
+unset SOC_CASE_DATABASE
+unset SOC_INPUT_ROOT
+unset SOC_DEPLOYMENT_MODE
+unset SOC_SESSION_HTTPS_ONLY
+unset SOC_ENABLE_HSTS
+unset SOC_LOG_FORMAT
+unset SOC_LOG_LEVEL
+```
+
+No AWS account, paid service, production secret, or live containment action is required for this demo.
