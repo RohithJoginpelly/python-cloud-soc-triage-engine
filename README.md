@@ -267,64 +267,43 @@ PYTHONPATH=src python src/report_generator.py
 
 Start the dashboard:
 
-```bash
-streamlit run dashboard/app.py
-```
+## Run the V2 API with Docker
 
-Open:
-
-```text
-http://localhost:8501
-```
-
-## Run with Docker
-
-Build the Docker image:
+Build the hardened production image:
 
 ```bash
-sudo docker build -t cloud-soc-triage .
+sudo docker build -t ai-soc-copilot:v2-production .
 ```
 
-Run the container:
+Create an ignored production environment file:
 
 ```bash
-sudo docker run --rm -p 8501:8501 -v "$PWD/data:/app/data" -v "$PWD/reports:/app/reports" cloud-soc-triage
+cp .env.production.example .env.production
+chmod 600 .env.production
 ```
 
-The Docker container automatically:
-
-* Runs the SOC detection engine
-* Updates the SQLite incident database
-* Generates incident reports
-* Starts the Streamlit dashboard
-
-## Accessing the Docker Dashboard
-
-If the browser is running inside the same Linux/Kali environment, open:
-
-```text
-http://localhost:8501
-```
-
-If Docker is running inside a Kali VM and the browser is running on the Windows host, first find the Kali VM IP:
+Configure independent values for `SOC_API_KEY` and `SOC_SESSION_SECRET`, then start the container:
 
 ```bash
-hostname -I
+./deploy/run-production-container.sh
 ```
 
-Then open the VM IP from the Windows browser:
+The V2 API is available locally at:
 
 ```text
-http://<KALI_VM_IP>:8501
+http://127.0.0.1:8000
 ```
 
-Example:
+Operational checks:
 
-```text
-http://192.168.119.128:8501
+```bash
+curl -i http://127.0.0.1:8000/health/live
+curl -i http://127.0.0.1:8000/health/ready
 ```
 
-The Docker internal address such as `172.17.0.1` should not be used from the Windows host.
+The launcher uses a non-root user, a read-only root filesystem, dropped capabilities, resource limits, persistent SQLite storage, and localhost-only port binding.
+
+See `docs/DEPLOYMENT.md` and `docs/CONFIGURATION.md` for production guidance.
 
 ## Run Tests
 
