@@ -310,7 +310,7 @@ See `docs/DEPLOYMENT.md` and `docs/CONFIGURATION.md` for production guidance.
 Run the automated test suite:
 
 ```bash
-PYTHONPATH=src pytest -v
+python -m pytest -v
 ```
 
 Expected result:

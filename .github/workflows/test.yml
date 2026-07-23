@@ -27,7 +27,7 @@ jobs:
 
       - name: Run unit tests
         run: |
-          PYTHONPATH=src pytest -v
+          python -m pytest -v
 
       - name: Replay sample CloudTrail logs
         run: |
