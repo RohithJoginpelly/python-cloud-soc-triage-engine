@@ -1,0 +1,655 @@
+"""FastAPI application for AI SOC Copilot Version 2."""
+
+from __future__ import annotations
+
+import os
+import secrets
+from pathlib import Path
+
+from fastapi.staticfiles import StaticFiles
+from starlette.middleware.sessions import SessionMiddleware
+from src.api.security_headers import SecurityHeadersMiddleware
+
+from fastapi import (
+    FastAPI,
+    HTTPException,
+    Query,
+    status,
+)
+
+from src.identity.session_security import SessionSecurityStore
+from src.identity.login_security import LoginSecurityStore
+from src.identity.store import IdentityStore
+from src.api.dashboard import router as dashboard_router
+from src.api.dependencies import (
+    CaseStoreDependency,
+    DatabasePathDependency,
+    InputRootDependency,
+)
+from src.api.client_address import TrustedProxyResolver
+from src.api.rate_limit import SlidingWindowRateLimiter
+from src.api.request_limits import RequestBodyLimitMiddleware
+from src.api.error_handling import configure_safe_error_handling
+from src.api.observability import RequestObservabilityMiddleware
+from src.api.logging_config import configure_application_logging
+from src.api.configuration_api import router as configuration_router
+from src.api.configuration import (
+    log_configuration_report,
+    require_valid_configuration,
+    validate_runtime_configuration,
+)
+from src.api.metrics import (
+    OperationalMetrics,
+    router as metrics_router,
+)
+from src.api.health import (
+    ReadinessChecker,
+    router as health_router,
+)
+from src.api.security import configure_api_key_auth
+from src.api.schemas import (
+    AuditEventResponse,
+    CaseResponse,
+    CaseStatus,
+    CaseUpdateRequest,
+    HealthResponse,
+    PipelineResponse,
+    SSHPipelineRequest,
+)
+from src.cases.store import SQLiteCaseStore
+from src.orchestration.pipeline import (
+    run_cross_source_ssh_pipeline,
+)
+
+
+API_VERSION = "2.0.0"
+
+
+def _resolve_json_input(
+    filename: str,
+    input_root: Path,
+) -> Path:
+    """Resolve and validate a JSON input inside input_root.
+
+    This prevents API clients from using path traversal to
+    read arbitrary files outside the configured telemetry
+    directory.
+    """
+
+    normalized_name = filename.strip()
+
+    if not normalized_name:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Input filename is required",
+        )
+
+    root = input_root.resolve()
+
+    supplied_path = Path(normalized_name)
+
+    if supplied_path.is_absolute():
+        candidate = supplied_path.resolve()
+    else:
+        candidate = (
+            root / supplied_path
+        ).resolve()
+
+    try:
+        candidate.relative_to(root)
+    except ValueError as error:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Input file must be inside the configured "
+                "telemetry directory"
+            ),
+        ) from error
+
+    if candidate.suffix.lower() != ".json":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only JSON telemetry files are supported",
+        )
+
+    if not candidate.exists():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Input file not found: {normalized_name}",
+        )
+
+    if not candidate.is_file():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Telemetry input must be a regular file",
+        )
+
+    return candidate
+
+
+def create_app(
+    *,
+    database_path: str | Path | None = None,
+    input_root: str | Path | None = None,
+    api_key: str | None = None,
+    session_secret: str | None = None,
+) -> FastAPI:
+    """Create and configure the SOC API application."""
+
+    resolved_database = Path(
+        database_path
+        or os.getenv(
+            "SOC_CASE_DATABASE",
+            "data/cases/soc_cases.db",
+        )
+    )
+
+    resolved_input_root = Path(
+        input_root
+        or os.getenv(
+            "SOC_INPUT_ROOT",
+            "data/test_events",
+        )
+    ).resolve()
+
+    resolved_input_root.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    configured_api_key = (
+        api_key
+        if api_key is not None
+        else os.getenv("SOC_API_KEY")
+    )
+
+    resolved_api_key = (
+        configured_api_key.strip()
+        if isinstance(configured_api_key, str)
+        and configured_api_key.strip()
+        else None
+    )
+
+    environment_session_secret = os.getenv(
+        "SOC_SESSION_SECRET"
+    )
+
+    explicit_session_secret = (
+        session_secret.strip()
+        if isinstance(session_secret, str)
+        and session_secret.strip()
+        else (
+            environment_session_secret.strip()
+            if isinstance(
+                environment_session_secret,
+                str,
+            )
+            and environment_session_secret.strip()
+            else None
+        )
+    )
+
+    session_secret_is_explicit = (
+        explicit_session_secret is not None
+    )
+
+    configured_session_secret = (
+        explicit_session_secret
+        or resolved_api_key
+        or secrets.token_urlsafe(48)
+    )
+
+    https_only = (
+        os.getenv(
+            "SOC_SESSION_HTTPS_ONLY",
+            "false",
+        ).strip().lower()
+        in {"1", "true", "yes", "on"}
+    )
+
+    hsts_enabled = (
+        os.getenv(
+            "SOC_ENABLE_HSTS",
+            "false",
+        ).strip().lower()
+        in {"1", "true", "yes", "on"}
+    )
+
+    try:
+        login_rate_limit = int(
+            os.getenv(
+                "SOC_LOGIN_RATE_LIMIT",
+                "10",
+            )
+        )
+
+        login_rate_window_seconds = int(
+            os.getenv(
+                "SOC_LOGIN_RATE_WINDOW_SECONDS",
+                "60",
+            )
+        )
+
+        api_rate_limit = int(
+            os.getenv(
+                "SOC_API_RATE_LIMIT",
+                "120",
+            )
+        )
+
+        api_rate_window_seconds = int(
+            os.getenv(
+                "SOC_API_RATE_WINDOW_SECONDS",
+                "60",
+            )
+        )
+    except ValueError as error:
+        raise ValueError(
+            "Rate-limit configuration values "
+            "must be integers."
+        ) from error
+
+    if min(
+        login_rate_limit,
+        login_rate_window_seconds,
+        api_rate_limit,
+        api_rate_window_seconds,
+    ) < 1:
+        raise ValueError(
+            "Rate-limit configuration values "
+            "must be positive."
+        )
+
+    trusted_proxy_resolver = (
+        TrustedProxyResolver.from_csv(
+            os.getenv(
+                "SOC_TRUSTED_PROXY_CIDRS"
+            )
+        )
+    )
+
+    try:
+        max_request_body_bytes = int(
+            os.getenv(
+                "SOC_MAX_REQUEST_BODY_BYTES",
+                "2097152",
+            )
+        )
+    except ValueError as error:
+        raise ValueError(
+            "SOC_MAX_REQUEST_BODY_BYTES "
+            "must be an integer."
+        ) from error
+
+    if max_request_body_bytes < 1:
+        raise ValueError(
+            "SOC_MAX_REQUEST_BODY_BYTES "
+            "must be positive."
+        )
+
+    logging_configuration = (
+        configure_application_logging()
+    )
+
+    configuration_report = (
+        validate_runtime_configuration(
+            deployment_mode=os.getenv(
+                "SOC_DEPLOYMENT_MODE",
+                "development",
+            ),
+            api_key=resolved_api_key,
+            session_secret=(
+                explicit_session_secret
+            ),
+            session_secret_is_explicit=(
+                session_secret_is_explicit
+            ),
+            session_https_only=https_only,
+            hsts_enabled=hsts_enabled,
+            log_format=(
+                logging_configuration.log_format
+            ),
+        )
+    )
+
+    log_configuration_report(
+        configuration_report
+    )
+
+    if (
+        configuration_report.deployment_mode
+        == "production"
+    ):
+        require_valid_configuration(
+            configuration_report
+        )
+
+    app = FastAPI(
+        debug=False,
+        title="AI SOC Copilot API",
+        description=(
+            "Evidence-grounded multi-source security "
+            "correlation, triage, Copilot, and case "
+            "management API."
+        ),
+        version=API_VERSION,
+    )
+
+    configure_safe_error_handling(app)
+
+    app.state.deployment_mode = (
+        configuration_report.deployment_mode
+    )
+
+    app.state.configuration_report = (
+        configuration_report
+    )
+
+    app.state.log_format = (
+        logging_configuration.log_format
+    )
+
+    app.state.log_level = (
+        logging_configuration.level_name
+    )
+
+    app.state.database_path = resolved_database
+    app.state.input_root = resolved_input_root
+    app.state.case_store = SQLiteCaseStore(
+        resolved_database
+    )
+
+    app.state.identity_store = IdentityStore(
+        app.state.case_store.database_path
+    )
+
+    app.state.session_security_store = SessionSecurityStore(
+        app.state.identity_store.database_path
+    )
+
+    app.state.login_security_store = LoginSecurityStore(
+        app.state.identity_store.database_path
+    )
+
+    app.state.readiness_checker = ReadinessChecker(
+        database_path=(
+            app.state.case_store.database_path
+        ),
+        input_root=resolved_input_root,
+    )
+    app.state.api_key = resolved_api_key
+
+    app.state.rate_limiter = (
+        SlidingWindowRateLimiter()
+    )
+
+    app.state.operational_metrics = (
+        OperationalMetrics()
+    )
+
+    app.state.trusted_proxy_resolver = (
+        trusted_proxy_resolver
+    )
+
+    app.state.max_request_body_bytes = (
+        max_request_body_bytes
+    )
+
+    app.state.hsts_enabled = hsts_enabled
+
+    app.state.login_rate_limit = (
+        login_rate_limit
+    )
+
+    app.state.login_rate_window_seconds = (
+        login_rate_window_seconds
+    )
+
+    app.state.api_rate_limit = (
+        api_rate_limit
+    )
+
+    app.state.api_rate_window_seconds = (
+        api_rate_window_seconds
+    )
+
+    app.add_middleware(
+        SessionMiddleware,
+        secret_key=configured_session_secret,
+        same_site="lax",
+        https_only=https_only,
+        max_age=28800,
+    )
+
+    app.add_middleware(
+        RequestBodyLimitMiddleware,
+        max_body_bytes=max_request_body_bytes,
+    )
+
+    app.add_middleware(
+        SecurityHeadersMiddleware,
+        enable_hsts=hsts_enabled,
+    )
+
+    configure_api_key_auth(app)
+
+    # Added after API-key middleware so request
+    # observability wraps every HTTP response.
+    app.add_middleware(
+        RequestObservabilityMiddleware
+    )
+
+    app.include_router(
+        health_router
+    )
+
+    app.include_router(
+        metrics_router
+    )
+
+    app.include_router(
+        configuration_router
+    )
+
+    static_directory = (
+        Path(__file__).resolve().parent
+        / "static"
+    )
+
+    app.mount(
+        "/static",
+        StaticFiles(
+            directory=str(static_directory)
+        ),
+        name="static",
+    )
+
+    @app.get(
+        "/health",
+        response_model=HealthResponse,
+        tags=["system"],
+    )
+    def health() -> HealthResponse:
+        """Return the API health status."""
+
+        return HealthResponse(
+            status="healthy",
+            service="ai-soc-copilot",
+            version=API_VERSION,
+        )
+
+    @app.get(
+        "/cases",
+        response_model=list[CaseResponse],
+        tags=["cases"],
+    )
+    def list_cases(
+        store: CaseStoreDependency,
+        case_status: CaseStatus | None = Query(
+            default=None,
+            alias="status",
+        ),
+        limit: int = Query(
+            default=100,
+            ge=1,
+            le=500,
+        ),
+    ) -> list[CaseResponse]:
+        """List SOC cases, optionally filtered by status."""
+
+        records = store.list_cases(
+            status=case_status,
+            limit=limit,
+        )
+
+        return [
+            CaseResponse.model_validate(
+                record.to_dict()
+            )
+            for record in records
+        ]
+
+    @app.get(
+        "/cases/{case_id}",
+        response_model=CaseResponse,
+        tags=["cases"],
+    )
+    def get_case(
+        case_id: str,
+        store: CaseStoreDependency,
+    ) -> CaseResponse:
+        """Return one SOC case."""
+
+        record = store.get_case(case_id)
+
+        if record is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Case not found: {case_id}",
+            )
+
+        return CaseResponse.model_validate(
+            record.to_dict()
+        )
+
+    @app.get(
+        "/cases/{case_id}/audit",
+        response_model=list[AuditEventResponse],
+        tags=["cases"],
+    )
+    def get_case_audit(
+        case_id: str,
+        store: CaseStoreDependency,
+    ) -> list[AuditEventResponse]:
+        """Return the append-only audit history."""
+
+        record = store.get_case(case_id)
+
+        if record is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Case not found: {case_id}",
+            )
+
+        return [
+            AuditEventResponse.model_validate(
+                event.to_dict()
+            )
+            for event in store.get_audit_events(
+                case_id
+            )
+        ]
+
+    @app.patch(
+        "/cases/{case_id}",
+        response_model=CaseResponse,
+        tags=["cases"],
+    )
+    def update_case(
+        case_id: str,
+        update: CaseUpdateRequest,
+        store: CaseStoreDependency,
+    ) -> CaseResponse:
+        """Update status, assignment, or analyst notes."""
+
+        try:
+            record = store.update_case(
+                case_id,
+                status=update.status,
+                assigned_to=update.assigned_to,
+                note=update.note,
+                actor=update.actor,
+            )
+        except KeyError as error:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=str(error).strip("'"),
+            ) from error
+        except ValueError as error:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(error),
+            ) from error
+
+        return CaseResponse.model_validate(
+            record.to_dict()
+        )
+
+    @app.post(
+        "/pipelines/ssh",
+        response_model=PipelineResponse,
+        status_code=status.HTTP_201_CREATED,
+        tags=["pipelines"],
+    )
+    def run_ssh_pipeline(
+        request: SSHPipelineRequest,
+        input_directory: InputRootDependency,
+        case_database: DatabasePathDependency,
+    ) -> PipelineResponse:
+        """Run Snort and Wazuh SSH correlation."""
+
+        snort_file = _resolve_json_input(
+            request.snort_file,
+            input_directory,
+        )
+
+        wazuh_file = _resolve_json_input(
+            request.wazuh_file,
+            input_directory,
+        )
+
+        try:
+            summary = (
+                run_cross_source_ssh_pipeline(
+                    snort_file=snort_file,
+                    wazuh_file=wazuh_file,
+                    database_path=case_database,
+                    provider_name=request.provider,
+                    actor=request.actor,
+                )
+            )
+        except FileNotFoundError as error:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=str(error),
+            ) from error
+        except ValueError as error:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(error),
+            ) from error
+        except RuntimeError as error:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=str(error),
+            ) from error
+
+        return PipelineResponse.model_validate(
+            summary.to_dict()
+        )
+
+    app.include_router(
+        dashboard_router
+    )
+
+    return app

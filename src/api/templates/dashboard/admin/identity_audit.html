@@ -1,0 +1,105 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}
+Identity Audit Log
+{% endblock %}
+
+{% block content %}
+<section class="page-heading">
+    <div>
+        <p class="eyebrow">
+            Identity security
+        </p>
+
+        <h1>Identity audit log</h1>
+
+        <p class="muted">
+            Review recent password and account
+            security events.
+        </p>
+    </div>
+</section>
+
+<section class="panel">
+    <div class="panel-header">
+        <div>
+            <p class="eyebrow">
+                Security history
+            </p>
+
+            <h2>Recent events</h2>
+        </div>
+
+        <span class="count-badge">
+            {{ audit_events | length }} events
+        </span>
+    </div>
+
+    <div class="table-scroll">
+        <table class="admin-table audit-table">
+            <thead>
+                <tr>
+                    <th>Time</th>
+                    <th>Action</th>
+                    <th>Actor</th>
+                    <th>Target</th>
+                    <th>Method</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for event in audit_events %}
+                {% set target_account =
+                    account_lookup.get(
+                        event.target_user_id
+                    )
+                %}
+
+                <tr>
+                    <td>
+                        {{ event.created_at | soc_datetime }}
+                    </td>
+
+                    <td>
+                        <span class="audit-action">
+                            {{ event.action
+                                .replace("_", " ")
+                                .title()
+                            }}
+                        </span>
+                    </td>
+
+                    <td>
+                        {{ event.actor_email }}
+                    </td>
+
+                    <td>
+                        {% if target_account %}
+                            {{ target_account.email }}
+                        {% elif event.details.get("target_email") %}
+                            {{ event.details.get("target_email") }}
+                        {% else %}
+                            Unknown
+                        {% endif %}
+                    </td>
+
+                    <td>
+                        {{ event.details.get(
+                            "method",
+                            "system"
+                        ).replace("_", " ").title() }}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5">
+                        No identity security events
+                        have been recorded.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

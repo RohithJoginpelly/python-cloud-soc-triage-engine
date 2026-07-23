@@ -1,0 +1,81 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}Analyst Login{% endblock %}
+
+{% block content %}
+<section class="login-shell">
+    <div class="login-card">
+        <p class="eyebrow">
+            Protected analyst access
+        </p>
+
+        <h1>Sign in to the SOC dashboard</h1>
+
+        <p class="muted">
+            Use your individual analyst account.
+        </p>
+
+        {% if request.query_params.get("notice") == "password-changed" %}
+        <div class="alert alert-success">
+            Password changed successfully.
+            Sign in with your new password.
+        </div>
+        {% elif request.query_params.get("notice") == "session-expired" %}
+        <div class="alert alert-error">
+            Your session expired after a period
+            of inactivity. Sign in again.
+        </div>
+        {% endif %}
+
+        {% if error %}
+        <div class="alert alert-error">
+            {{ error }}
+        </div>
+        {% endif %}
+
+        <form
+            method="post"
+            action="/dashboard/login"
+            class="login-form"
+        >
+            <input
+                type="hidden"
+                name="csrf_token"
+                value="{{ csrf_token }}"
+            >
+
+            <label for="email">
+                Analyst email
+            </label>
+
+            <input
+                id="email"
+                name="email"
+                type="email"
+                required
+                autocomplete="username"
+                autofocus
+            >
+
+            <label for="password">
+                Password
+            </label>
+
+            <input
+                id="password"
+                name="password"
+                type="password"
+                required
+                autocomplete="current-password"
+            >
+
+            <button
+                class="button button-primary"
+                type="submit"
+            >
+                Open command center
+            </button>
+        </form>
+    </div>
+</section>
+{% endblock %}

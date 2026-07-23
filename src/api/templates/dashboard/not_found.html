@@ -1,0 +1,18 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}Case Not Found{% endblock %}
+
+{% block content %}
+<section class="empty-state full-page">
+    <h1>Case not found</h1>
+
+    <p>
+        No SOC case exists with ID:
+        <span class="mono">{{ case_id }}</span>
+    </p>
+
+    <a class="button button-primary" href="/dashboard">
+        Return to case queue
+    </a>
+</section>
+{% endblock %}

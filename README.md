@@ -44,7 +44,7 @@ The project follows a practical SOC triage story:
 7. Enrich alerts with local user and IP context.
 8. Store incidents in SQLite.
 9. Prioritize P1/P2 notifications.
-10. Investigate incidents in the Streamlit dashboard.
+10. Investigate incidents in the authenticated FastAPI analyst dashboard.
 11. Generate markdown incident reports.
 
 ## Why This Project Stands Out
@@ -71,7 +71,7 @@ CloudTrail-style logs are processed through a Python parser, detection rules, co
 * Adds local enrichment from user and IP context files
 * Assigns severity and risk scores
 * Stores incidents in a local SQLite case database
-* Provides a Streamlit dashboard for SOC triage
+* Provides an authenticated, role-based FastAPI dashboard for SOC triage
 * Supports analyst case status updates and notes
 * Generates markdown incident reports
 * Includes SOC playbooks
@@ -146,7 +146,7 @@ CloudTrail logging was modified by a critical user from a suspicious IP address.
 
 ## Case Management Dashboard
 
-The Streamlit dashboard provides a local SOC case management interface.
+The V2 analyst dashboard provides authenticated case management, ownership, notes, status transitions, audit history, and role-based administrative controls.
 
 Dashboard capabilities include:
 
@@ -267,77 +267,56 @@ PYTHONPATH=src python src/report_generator.py
 
 Start the dashboard:
 
-```bash
-streamlit run dashboard/app.py
-```
+## Run the V2 API with Docker
 
-Open:
-
-```text
-http://localhost:8501
-```
-
-## Run with Docker
-
-Build the Docker image:
+Build the hardened production image:
 
 ```bash
-sudo docker build -t cloud-soc-triage .
+sudo docker build -t ai-soc-copilot:v2-production .
 ```
 
-Run the container:
+Create an ignored production environment file:
 
 ```bash
-sudo docker run --rm -p 8501:8501 -v "$PWD/data:/app/data" -v "$PWD/reports:/app/reports" cloud-soc-triage
+cp .env.production.example .env.production
+chmod 600 .env.production
 ```
 
-The Docker container automatically:
-
-* Runs the SOC detection engine
-* Updates the SQLite incident database
-* Generates incident reports
-* Starts the Streamlit dashboard
-
-## Accessing the Docker Dashboard
-
-If the browser is running inside the same Linux/Kali environment, open:
-
-```text
-http://localhost:8501
-```
-
-If Docker is running inside a Kali VM and the browser is running on the Windows host, first find the Kali VM IP:
+Configure independent values for `SOC_API_KEY` and `SOC_SESSION_SECRET`, then start the container:
 
 ```bash
-hostname -I
+./deploy/run-production-container.sh
 ```
 
-Then open the VM IP from the Windows browser:
+The V2 API is available locally at:
 
 ```text
-http://<KALI_VM_IP>:8501
+http://127.0.0.1:8000
 ```
 
-Example:
+Operational checks:
 
-```text
-http://192.168.119.128:8501
+```bash
+curl -i http://127.0.0.1:8000/health/live
+curl -i http://127.0.0.1:8000/health/ready
 ```
 
-The Docker internal address such as `172.17.0.1` should not be used from the Windows host.
+The launcher uses a non-root user, a read-only root filesystem, dropped capabilities, resource limits, persistent SQLite storage, and localhost-only port binding.
+
+See `docs/DEPLOYMENT.md` and `docs/CONFIGURATION.md` for production guidance.
 
 ## Run Tests
 
 Run the automated test suite:
 
 ```bash
-PYTHONPATH=src pytest -v
+python -m pytest -v
 ```
 
 Expected result:
 
 ```text
-9 passed
+413 passed
 ```
 
 The tests validate:
@@ -379,7 +358,7 @@ Each playbook includes investigation steps, evidence to review, containment guid
 * Local alert enrichment
 * Risk scoring
 * SQLite case management
-* Streamlit dashboard development
+* Secure FastAPI analyst dashboard development
 * Incident response documentation
 * Python automation
 * Pytest validation
@@ -395,6 +374,10 @@ No AWS account is required for the main version.
 No paid cloud services are required.
 
 The sample CloudTrail-style logs allow the full detection, triage, reporting, and dashboard workflow to run locally.
+
+## Version 2.0 Release
+
+Version 2 transforms the original CloudTrail triage engine into a multi-source, evidence-grounded AI SOC Copilot with an authenticated FastAPI analyst dashboard, deterministic correlation and risk scoring, MITRE ATT&CK mapping, Copilot-assisted investigation, persistent case management, audit trails, role-based access control, operational observability, and hardened container deployment.
 
 ## Future Improvements
 
@@ -420,7 +403,7 @@ Completed additions:
 - Optional AWS CloudTrail Event History collector
 - Ingestion configuration using config/ingestion_config.json
 - Source tagging for alerts and incidents
-- Ingestion status tracking in the Streamlit dashboard
+- Legacy V1 ingestion status tracking preserved for historical compatibility
 - Rule-based analyst summaries for each incident
 
 New files added:
@@ -462,7 +445,7 @@ The notification outbox includes:
 - Analyst summary
 - Recommended analyst action
 
-The Streamlit dashboard also includes a Notification Status section showing the number of generated notifications, delivery mode, and notification channel.
+The repository retains the local notification outbox for safe offline demonstrations without requiring live email credentials.
 
 This feature demonstrates SOC alerting workflow design while keeping the project safe for GitHub. Real email sending is intentionally not enabled by default, so no passwords, API keys, or SMTP credentials are required.
 

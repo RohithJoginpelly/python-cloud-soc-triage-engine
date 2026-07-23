@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1"
+    >
+
+    <title>
+        {% block title %}AI SOC Copilot{% endblock %}
+    </title>
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', path='/dashboard.css') }}"
+    >
+
+    <script
+        src="{{ url_for('static', path='/dashboard.js') }}"
+        defer
+    ></script>
+</head>
+
+<body>
+    <header class="topbar">
+        <a class="brand" href="/dashboard">
+            <span class="brand-mark">SOC</span>
+
+            <span>
+                <strong>AI SOC Copilot</strong>
+                <small>Analyst Command Center</small>
+            </span>
+        </a>
+
+        {% if current_account %}
+        <details class="account-menu">
+            <summary class="account-menu-trigger">
+                <span class="account-avatar">
+                    {{ current_account.display_name[:1].upper() }}
+                </span>
+
+                <span class="account-summary">
+                    <strong>
+                        {{ current_account.display_name }}
+                    </strong>
+
+                    <small>
+                        {{ current_account.role
+                            .replace("_", " ")
+                            .title()
+                        }}
+                    </small>
+                </span>
+
+                <span class="account-chevron">▾</span>
+            </summary>
+
+            <div class="account-menu-panel">
+                <div class="account-menu-identity">
+                    <strong>
+                        {{ current_account.display_name }}
+                    </strong>
+
+                    <small>
+                        {{ current_account.email }}
+                    </small>
+                </div>
+
+                <div class="account-menu-divider"></div>
+
+                <a
+                    class="account-menu-item"
+                    href="/dashboard/account/password"
+                >
+                    Change password
+                </a>
+
+                {% if current_account.role == "admin" %}
+                <a
+                    class="account-menu-item"
+                    href="/dashboard/admin/analysts"
+                >
+                    Manage analysts
+                </a>
+
+                <a
+                    class="account-menu-item"
+                    href="/dashboard/admin/identity-audit"
+                >
+                    Identity audit
+                </a>
+                {% endif %}
+
+                <div class="account-menu-divider"></div>
+
+                <form
+                    method="post"
+                    action="/dashboard/logout"
+                >
+                    <input
+                        type="hidden"
+                        name="csrf_token"
+                        value="{{ csrf_token }}"
+                    >
+
+                    <button
+                        class="account-menu-item account-menu-signout"
+                        type="submit"
+                    >
+                        Sign out
+                    </button>
+                </form>
+            </div>
+        </details>
+        {% endif %}
+    </header>
+
+    <main class="page">
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>

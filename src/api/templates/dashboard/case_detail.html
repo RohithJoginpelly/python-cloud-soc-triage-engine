@@ -1,0 +1,403 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}{{ case.title }}{% endblock %}
+
+{% block content %}
+<a class="back-link" href="/dashboard">
+    ← Back to case queue
+</a>
+
+<section class="case-hero">
+    <div>
+        <div class="case-labels">
+            <span
+                class="priority priority-{{ case.priority | lower }}"
+            >
+                {{ case.priority }}
+            </span>
+
+            <span class="status">
+                {{ case.status.replace("_", " ") }}
+            </span>
+        </div>
+
+        <h1>{{ case.title }}</h1>
+
+        <p class="mono">
+            {{ case.case_id }}
+        </p>
+    </div>
+
+    <div class="risk-score">
+        <span>Risk score</span>
+        <strong>{{ case.risk_score }}</strong>
+        <small>{{ case.risk_level }}</small>
+    </div>
+</section>
+
+{% if updated %}
+<div class="alert alert-success">
+    Case workflow updated successfully.
+</div>
+{% endif %}
+
+<section class="panel workflow-panel">
+    <div class="panel-header">
+        <div>
+            <p class="eyebrow">
+                Analyst workflow
+            </p>
+
+            <h2>Update case</h2>
+        </div>
+
+        <span class="role-badge">
+            {{ current_account.role.replace("_", " ").title() }}
+        </span>
+    </div>
+
+    <div class="permission-summary">
+        {% if can_reassign_cases %}
+        <p>
+            You may update, reassign, resolve,
+            or close this case.
+        </p>
+        {% elif can_assign_self %}
+        <p>
+            You may assign this case to yourself,
+            update the investigation, and add notes.
+        </p>
+        {% else %}
+        <p>
+            You may update active investigation
+            statuses and add notes. Reassignment and
+            terminal status changes require a senior
+            analyst.
+        </p>
+        {% endif %}
+    </div>
+
+    {% if can_assign_self %}
+    <form
+        id="self_assign_form"
+        method="post"
+        action="/dashboard/cases/{{ case.case_id }}/update"
+        class="self-assign-form"
+    >
+        <input
+            type="hidden"
+            name="csrf_token"
+            value="{{ csrf_token }}"
+        >
+
+        <input
+            type="hidden"
+            name="case_status"
+            value="{{ case.status }}"
+        >
+
+        <input
+            type="hidden"
+            name="assigned_to"
+            value="{{ current_account.email }}"
+        >
+
+        <input
+            type="hidden"
+            name="note"
+            value=""
+        >
+
+        <button
+            class="button button-secondary"
+            type="submit"
+        >
+            Assign this case to me
+        </button>
+    </form>
+    {% endif %}
+
+    <form
+        method="post"
+        action="/dashboard/cases/{{ case.case_id }}/update"
+        class="case-update-form"
+    >
+        <input
+            type="hidden"
+            name="csrf_token"
+            value="{{ csrf_token }}"
+        >
+
+        <div>
+            <label for="case_status">
+                Status
+            </label>
+
+            {% if can_update_status %}
+            <select
+                id="case_status"
+                name="case_status"
+                required
+            >
+                {% for status_name in case_statuses %}
+                <option
+                    id="status_option_{{ status_name }}"
+                    value="{{ status_name }}"
+                    {% if case.status == status_name %}
+                    selected
+                    {% endif %}
+                >
+                    {{ status_name.replace("_", " ").title() }}
+                </option>
+                {% endfor %}
+            </select>
+            {% else %}
+            <input
+                type="hidden"
+                name="case_status"
+                value="{{ case.status }}"
+            >
+
+            <div class="readonly-control">
+                {{ case.status.replace("_", " ").title() }}
+            </div>
+            {% endif %}
+        </div>
+
+        <div>
+            <label>
+                Assigned analyst
+            </label>
+
+            {% if can_reassign_cases %}
+            <input
+                id="assignee_control"
+                name="assigned_to"
+                type="email"
+                value="{{ case.assigned_to or '' }}"
+                placeholder="analyst@example.com"
+            >
+            {% else %}
+            <input
+                type="hidden"
+                name="assigned_to"
+                value="{{ case.assigned_to or '' }}"
+            >
+
+            <div
+                id="readonly_assignee"
+                class="readonly-control"
+            >
+                {% if case.assigned_to %}
+                    {{ case.assigned_to }}
+                {% else %}
+                    Unassigned
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="full-width">
+            <label for="note">
+                Investigation note
+            </label>
+
+            {% if can_add_notes %}
+            <textarea
+                id="note"
+                name="note"
+                rows="4"
+                maxlength="4000"
+                placeholder="Document investigation activity..."
+            ></textarea>
+            {% else %}
+            <input
+                type="hidden"
+                name="note"
+                value=""
+            >
+
+            <div class="readonly-control">
+                Your role cannot add notes.
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="full-width workflow-actions">
+            <button
+                class="button button-primary"
+                type="submit"
+            >
+                Save case update
+            </button>
+
+            {% if not can_resolve_cases %}
+            <small class="permission-hint">
+                Resolving or closing a case requires
+                a senior analyst or administrator.
+            </small>
+            {% endif %}
+        </div>
+    </form>
+</section>
+
+<section class="detail-grid">
+    <article class="panel">
+        <h2>Incident summary</h2>
+
+        <p>
+            {{ packet.get("summary", "No summary available.") }}
+        </p>
+
+        <dl class="detail-list">
+            <div>
+                <dt>Source IP</dt>
+                <dd>
+                    {{ packet.get("source_ip") or "Unknown" }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Username</dt>
+                <dd>
+                    {{ packet.get("username") or "Unknown" }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Destination</dt>
+                <dd>
+                    {{ packet.get("destination_host") or "Unknown" }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Evidence events</dt>
+                <dd>
+                    {{ packet.get("evidence_count", 0) }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>First seen</dt>
+                <dd class="mono">
+                    {{ case.packet.get("first_seen", "Unknown") }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Last seen</dt>
+                <dd class="mono">
+                    {{ case.packet.get("last_seen", "Unknown") }}
+                </dd>
+            </div>
+        </dl>
+    </article>
+
+    <article class="panel">
+        <h2>MITRE ATT&amp;CK</h2>
+
+        {% if mitre_techniques %}
+        <div class="technique-list">
+            {% for technique in mitre_techniques %}
+            <div class="technique">
+                <strong>
+                    {{ technique.get("technique_id") }}
+                    —
+                    {{ technique.get("name") }}
+                </strong>
+
+                <p>
+                    {{ technique.get("evidence") }}
+                </p>
+
+                <small>
+                    Confidence:
+                    {{ technique.get("confidence") }}
+                </small>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="muted">
+            No deterministic ATT&amp;CK mapping.
+        </p>
+        {% endif %}
+    </article>
+</section>
+
+{% if copilot_draft %}
+<section class="panel">
+    <div class="panel-header">
+        <div>
+            <p class="eyebrow">Validated Copilot output</p>
+            <h2>AI-assisted assessment</h2>
+        </div>
+    </div>
+
+    <h3>Executive summary</h3>
+    <p>
+        {{ copilot_draft.get("executive_summary") }}
+    </p>
+
+    <h3>Assessment</h3>
+    <p>
+        {{ copilot_draft.get("assessment") }}
+    </p>
+
+    <div class="detail-grid">
+        <div>
+            <h3>Investigation steps</h3>
+
+            <ol>
+                {% for step in copilot_draft.get(
+                    "investigation_steps",
+                    []
+                ) %}
+                <li>{{ step }}</li>
+                {% endfor %}
+            </ol>
+        </div>
+
+        <div>
+            <h3>Uncertainties</h3>
+
+            <ul>
+                {% for uncertainty in copilot_draft.get(
+                    "uncertainties",
+                    []
+                ) %}
+                <li>{{ uncertainty }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+</section>
+{% endif %}
+
+<section class="panel">
+    <h2>Audit timeline</h2>
+
+    <div class="timeline">
+        {% for event in audit_events %}
+        <article class="timeline-event">
+            <div class="timeline-marker"></div>
+
+            <div>
+                <strong>
+                    {{ event.event_type.replace("_", " ").title() }}
+                </strong>
+
+                <p>
+                    Actor: {{ event.actor }}
+                </p>
+
+                <small class="mono">
+                    {{ event.created_at | soc_datetime }}
+                </small>
+            </div>
+        </article>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}

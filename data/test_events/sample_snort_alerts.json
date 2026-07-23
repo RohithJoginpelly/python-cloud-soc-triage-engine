@@ -1,0 +1,38 @@
+{
+  "alerts": [
+    {
+      "timestamp": "2026-07-18T18:20:01.123456+00:00",
+      "event_type": "alert",
+      "src_ip": "192.168.119.131",
+      "src_port": 44218,
+      "dest_ip": "192.168.119.132",
+      "dest_port": 22,
+      "proto": "TCP",
+      "alert": {
+        "gid": 1,
+        "sid": 1000001,
+        "rev": 1,
+        "signature": "LOCAL Possible SSH SYN scan",
+        "category": "Attempted Information Leak",
+        "priority": 2
+      }
+    },
+    {
+      "timestamp": "2026-07-18T18:21:10.654321+00:00",
+      "event_type": "alert",
+      "src_ip": "192.168.119.131",
+      "src_port": 44302,
+      "dest_ip": "192.168.119.132",
+      "dest_port": 80,
+      "proto": "TCP",
+      "alert": {
+        "gid": 1,
+        "sid": 1000002,
+        "rev": 1,
+        "signature": "LOCAL Possible web exploit attempt",
+        "category": "Web Application Attack",
+        "priority": 1
+      }
+    }
+  ]
+}
